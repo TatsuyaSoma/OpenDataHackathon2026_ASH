@@ -1,54 +1,56 @@
-# 家族の熱中症見守り - ホーム画面デモ
+# Welcome to your Expo app 👋
 
-都知事杯 OpenData Hackathon 提出用デモアプリのホーム画面実装です。React Native + TypeScript で構築しています。
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## セットアップ
+## Get started
+
+1. Install dependencies
+
+   ```bash
+   npm install
+   ```
+
+2. Start the app
+
+   ```bash
+   npx expo start
+   ```
+
+In the output, you'll find options to open the app in a
+
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Get a fresh project
+
+When you're ready, run:
 
 ```bash
-# 依存パッケージ
-npm install
-npm install react-native-svg lucide-react-native react-native-svg-transformer
-
-# Expo を利用する場合
-npx expo install react-native-svg
+npm run reset-project
 ```
 
-- 円形ゲージ表示に `react-native-svg` を使用しています。
-- アイコンは `lucide-react-native` を使用しています（ハンバーガー・ベル・地図ピン・ベッドなど、モックのUIに合わせたシンプルな線画アイコン）。
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-## ディレクトリ構成
+### Other setup steps
 
-```
-src/
-  types/            # Member / RiskLevel などの型定義
-  constants/
-    riskConfig.ts    # 危険度6段階（水色〜紫）の色・ラベル定義
-    theme.ts          # 共通カラー・余白
-  data/
-    mockData.ts        # ホーム画面表示用のモックデータ（イメージ図に準拠）
-  components/
-    RiskGauge.tsx       # 円形の危険度ゲージ（react-native-svg）
-    RiskBadge.tsx        # 危険度ラベルのバッジ
-    MemberCard.tsx        # メンバー1人分のカード
-    AlertBanner.tsx        # 「現在の危険者：n名」バナー
-    RestModeBar.tsx         # お休みモード設定バー
-    BottomTabBar.tsx         # 下部タブバー（見た目のみのモック）
-  screens/
-    HomeScreen.tsx           # ホーム画面本体
-App.tsx                       # ホーム画面単体で動作確認するためのエントリポイント
-```
+- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
+- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
+- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
 
-## 今後の実装で置き換える想定の箇所
+## Learn more
 
-- `BottomTabBar` → `@react-navigation/bottom-tabs` の Tab Navigator
-- `App.tsx` の直接呼び出し → `NavigationContainer` + Stack Navigator（ホーム/カード詳細/マップ/通知履歴/設定）
-- `mockData.ts` → 各メンバーの現在位置（GPS）＋ 東京都オープンデータ（気温・湿度）から算出した実データ
-- 危険度算出ロジック（`riskLevel` の決定）は、現状メンバーごとに固定値。実装時は
-  「現在位置の気温・湿度（東京都オープンデータ）」×「年齢・性別」から WBGT 相当の指標を計算し、
-  `RiskLevel` の6段階（`safeLight` 〜 `severe`）にマッピングするロジックを別モジュールとして追加予定です。
-- 通知（プッシュ通知）連携、お休みモードの自動解除（位置情報の変化検知）はネイティブ側の実装が必要です。
+To learn more about developing your project with Expo, look at the following resources:
 
-## 補足
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-- カードの枠色は危険度が「危険」「非常に危険」の場合に赤枠でハイライトされます（お休み中は除く）。
-- 「現在の危険者：n名」のバナーは、危険者が1人以上いる場合のみ表示されます。
+## Join the community
+
+Join our community of developers creating universal apps.
+
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
