@@ -1,0 +1,68 @@
+import { Member } from '../types';
+
+export const mockMembers: Member[] = [
+  {
+    id: 'member-1',
+    name: 'お父さん',
+    age: 68,
+    gender: '男性',
+    photoUrl: 'https://i.pravatar.cc/150?img=51',
+    location: {
+      address: '東京都千代田区丸の内1丁目',
+      latitude: 35.6812,
+      longitude: 139.7671,
+    },
+    environment: { temperature: 34.5, humidity: 68 },
+    riskLevel: 'danger',
+    lastUpdated: '9:41',
+    isResting: false,
+  },
+  {
+    id: 'member-2',
+    name: 'お母さん',
+    age: 65,
+    gender: '女性',
+    photoUrl: 'https://i.pravatar.cc/150?img=47',
+    location: {
+      address: '東京都新宿区西新宿',
+      latitude: 35.6896,
+      longitude: 139.6917,
+    },
+    environment: { temperature: 32.1, humidity: 60 },
+    riskLevel: 'warning',
+    lastUpdated: '9:40',
+    isResting: false,
+  },
+  {
+    id: 'member-3',
+    name: 'お兄ちゃん',
+    age: 35,
+    gender: '男性',
+    photoUrl: 'https://i.pravatar.cc/150?img=12',
+    location: {
+      address: '東京都渋谷区渋谷',
+      latitude: 35.6580,
+      longitude: 139.7016,
+    },
+    environment: { temperature: 29.8, humidity: 55 },
+    riskLevel: 'safe',
+    lastUpdated: '9:40',
+    isResting: false,
+  },
+  {
+    id: 'member-4',
+    name: '妹',
+    age: 30,
+    gender: '女性',
+    photoUrl: 'https://i.pravatar.cc/150?img=32',
+    location: {
+      address: '東京都目黒区中目黒',
+      latitude: 35.6443,
+      longitude: 139.6994,
+    },
+    environment: { temperature: 27.4, humidity: 50 },
+    riskLevel: 'safeLight',
+    lastUpdated: '9:39',
+    isResting: false,
+  },
+];
