@@ -17,7 +17,11 @@ interface Props {
  */
 export const RiskGauge: React.FC<Props> = ({ riskLevel, size = 56, strokeWidth = 6 }) => {
   const config = RISK_CONFIG[riskLevel];
-  const progress = config.order / RISK_LEVEL_COUNT; // 0〜1
+  // order(1〜6) をそのまま /6 すると「ほぼ安全」でも16%表示されてしまいUX上不自然なため、
+  // 最も安全な段階を0%起点にする（レビュー指摘反映）。
+  // ただし完全に0%だとリングが全く見えず「未取得」と誤認されやすいため、視認性のため最小4%を保証する。
+  const rawProgress = (config.order - 1) / (RISK_LEVEL_COUNT - 1); // 0〜1
+  const progress = Math.max(rawProgress, 0.04);
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;

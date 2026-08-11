@@ -3,7 +3,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+// react-native-worklets の scheduleOnRN は Expo SDK 57 で要注意のため、
+// 動作検証が済むまで setVisible を直接呼び出す形に置き換え（レビュー指摘反映）。
+// 検証後に問題なければ import { scheduleOnRN } from 'react-native-worklets'; に戻してOK。
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
@@ -40,7 +42,7 @@ export function AnimatedSplashOverlay() {
       entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
         'worklet';
         if (finished) {
-          scheduleOnRN(setVisible, false);
+          setVisible(false);
         }
       })}
       style={styles.splashOverlay}>
