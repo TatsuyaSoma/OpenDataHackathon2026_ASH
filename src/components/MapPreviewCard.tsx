@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MapPin as MapPinIcon, Map } from 'lucide-react-native';
 import { LocationInfo } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
+import { MapBackgroundLayer } from './MapBackgroundLayer';
 
 interface Props {
   location: LocationInfo;
@@ -27,9 +28,7 @@ export const MapPreviewCard: React.FC<Props> = ({ location, onPressOpenMap }) =>
       </View>
 
       <View style={styles.mapPlaceholder}>
-        {/* 道路風の飾り線（モック表示） */}
-        <View style={[styles.road, styles.roadHorizontal]} />
-        <View style={[styles.road, styles.roadVertical]} />
+        <MapBackgroundLayer />
 
         <Text style={[styles.placeLabel, { top: 10, left: 16 }]}>丸の内北口</Text>
         <Text style={[styles.placeLabel, { bottom: 14, right: 18 }]}>KITTE</Text>
@@ -86,31 +85,19 @@ const styles = StyleSheet.create({
   mapPlaceholder: {
     height: 160,
     borderRadius: radius.md,
-    backgroundColor: '#EAEFF2',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  road: {
-    position: 'absolute',
-    backgroundColor: '#FFFFFF',
-  },
-  roadHorizontal: {
-    top: '55%',
-    left: 0,
-    right: 0,
-    height: 10,
-  },
-  roadVertical: {
-    left: '20%',
-    top: 0,
-    bottom: 0,
-    width: 8,
-  },
   placeLabel: {
     position: 'absolute',
     fontSize: 10,
+    fontWeight: '600',
     color: '#5B6470',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   pinWrapper: {
     alignItems: 'center',

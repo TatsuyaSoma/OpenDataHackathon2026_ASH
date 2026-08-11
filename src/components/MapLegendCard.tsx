@@ -3,21 +3,16 @@ import { View, Text, StyleSheet } from 'react-native';
 import { RISK_CONFIG } from '../constants/riskConfig';
 import { colors, spacing, radius } from '../constants/theme';
 
-interface Props {
-  referenceMemberName: string;
-}
-
 const LEVELS = Object.values(RISK_CONFIG).sort((a, b) => a.order - b.order);
 
 /**
  * マップ左上に表示する危険度の凡例。
- * ヒートマップの基準メンバーによって危険度の感じ方が変わることを示すため、
- * タイトルに基準メンバー名を含める。
+ * ヒートマップはアメダスの実測気温・湿度から簡易的に算出した体感指数で色分けしている。
  */
-export const MapLegendCard: React.FC<Props> = ({ referenceMemberName }) => {
+export const MapLegendCard: React.FC = () => {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>熱中症危険度（{referenceMemberName}基準）</Text>
+      <Text style={styles.title}>熱中症危険度の目安（気温・湿度の実測値ベース）</Text>
       <View style={styles.gradientRow}>
         {LEVELS.map((level) => (
           <View key={level.label} style={[styles.segment, { backgroundColor: level.color }]} />

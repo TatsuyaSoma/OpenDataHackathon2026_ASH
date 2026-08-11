@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { BedDouble, User } from 'lucide-react-native';
+import { BedDouble, Navigation, User } from 'lucide-react-native';
 import { Member } from '../types';
 import { RISK_CONFIG } from '../constants/riskConfig';
 import { colors, radius } from '../constants/theme';
@@ -17,6 +17,7 @@ const SIZE = 56;
 /**
  * マップ上のメンバーアイコン。危険度カラーのリングで囲み、
  * お休み中の場合は右上にお休みバッジを重ねて表示する。
+ * 本人（isSelf）の場合は、実際の現在地であることが分かるよう青いパルスと現在地バッジを表示する。
  */
 export const MapMemberPin: React.FC<Props> = ({ member, x, y, onPress }) => {
   const [imageFailed, setImageFailed] = useState(false);
@@ -25,6 +26,8 @@ export const MapMemberPin: React.FC<Props> = ({ member, x, y, onPress }) => {
 
   return (
     <View style={[styles.wrapper, { left: `${x * 100}%`, top: `${y * 100}%` }]}>
+      {member.isSelf && <View style={styles.selfPulse} />}
+
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => onPress?.(member)}
@@ -42,6 +45,12 @@ export const MapMemberPin: React.FC<Props> = ({ member, x, y, onPress }) => {
         )}
       </TouchableOpacity>
 
+      {member.isSelf && (
+        <View style={styles.selfBadge}>
+          <Navigation size={11} color="#FFFFFF" fill="#FFFFFF" />
+        </View>
+      )}
+
       {member.isResting && (
         <View style={styles.restingBadge}>
           <BedDouble size={11} color="#FFFFFF" />
@@ -50,7 +59,7 @@ export const MapMemberPin: React.FC<Props> = ({ member, x, y, onPress }) => {
 
       <View style={styles.nameTag}>
         <Text style={styles.nameText} numberOfLines={1}>
-          {member.name}
+          {member.isSelf ? `${member.name}（現在地）` : member.name}
         </Text>
       </View>
     </View>
@@ -80,6 +89,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
+  },
+  selfPulse: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: SIZE + 24,
+    height: SIZE + 24,
+    borderRadius: (SIZE + 24) / 2,
+    backgroundColor: 'rgba(41, 121, 255, 0.18)',
+    transform: [{ translateX: -(SIZE + 24) / 2 }, { translateY: -(SIZE + 24) / 2 }],
+  },
+  selfBadge: {
+    position: 'absolute',
+    bottom: -2,
+    left: -2,
+    width: 20,
+    height: 20,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   restingBadge: {
     position: 'absolute',

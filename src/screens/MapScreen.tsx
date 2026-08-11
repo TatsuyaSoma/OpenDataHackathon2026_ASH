@@ -2,32 +2,24 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Alert } from 'react-native';
 import { ArrowLeft, BedDouble, Navigation } from 'lucide-react-native';
 import { Member } from '../types';
-import { RISK_CONFIG } from '../constants/riskConfig';
 import { colors, spacing, radius } from '../constants/theme';
 import { mockMapSpots } from '../data/mockData';
 import { useMembers } from '../context/MembersContext';
+import { useNearbySpots } from '../hooks/use-nearby-spots';
+import { useAreaWeather } from '../hooks/use-area-weather';
+import { MAP_BOUNDS, projectToMap } from '../utils/mapProjection';
 import { MapLegendCard } from '../components/MapLegendCard';
 import { MapDisplayControls } from '../components/MapDisplayControls';
 import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
 import { MapMemberPin } from '../components/MapMemberPin';
 import { MapSpotPin } from '../components/MapSpotPin';
 import { MapHeatmapLayer } from '../components/MapHeatmapLayer';
+import { MapBackgroundLayer } from '../components/MapBackgroundLayer';
 
 interface Props {
   onBack?: () => void;
   onOpenMemberDetail?: (member: Member) => void;
 }
-
-// マップ表示範囲の緯度経度境界（モックメンバーの位置が収まる東京都心付近を仮定）
-const MAP_BOUNDS = { latMin: 35.615, latMax: 35.71, lngMin: 139.66, lngMax: 139.8 };
-
-const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
-
-// 緯度経度を0〜1の正規化座標に変換する（実地図タイル導入までの仮の投影）
-const projectToMap = (latitude: number, longitude: number) => ({
-  x: clamp01((longitude - MAP_BOUNDS.lngMin) / (MAP_BOUNDS.lngMax - MAP_BOUNDS.lngMin)),
-  y: clamp01(1 - (latitude - MAP_BOUNDS.latMin) / (MAP_BOUNDS.latMax - MAP_BOUNDS.latMin)),
-});
 
 // 地図らしさを演出するための駅・地域ラベル（表示位置は目安）
 const STATIONS = [
@@ -44,30 +36,26 @@ const AREAS = [
   { name: '港区', x: 0.35, y: 0.74 },
 ];
 
+// アメダスの観測地点はまばらなため、表示範囲より少し広めの範囲から検索し、
+// 範囲外の地点は投影時にマップの端に寄せて表示する
+const WEATHER_SEARCH_BOUNDS = {
+  latMin: MAP_BOUNDS.latMin - 0.15,
+  latMax: MAP_BOUNDS.latMax + 0.15,
+  lngMin: MAP_BOUNDS.lngMin - 0.15,
+  lngMax: MAP_BOUNDS.lngMax + 0.15,
+};
+
 export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
-  const { members } = useMembers();
+  const { members, selfLocationStatus, refreshSelfLocation } = useMembers();
   const [heatmapEnabled, setHeatmapEnabled] = useState(true);
   const [membersEnabled, setMembersEnabled] = useState(true);
   const [convenienceEnabled, setConvenienceEnabled] = useState(true);
   const [vendingEnabled, setVendingEnabled] = useState(true);
 
-  // ヒートマップの基準にできるのは、実際の屋外環境にいる（お休み中でない）メンバーのみ
-  const referenceCandidates = useMemo(
-    () => members.filter((m) => !m.isResting),
-    [members]
-  );
-  const defaultReference = useMemo(
-    () =>
-      [...referenceCandidates].sort(
-        (a, b) => RISK_CONFIG[b.riskLevel].order - RISK_CONFIG[a.riskLevel].order
-      )[0] ?? members[0],
-    [referenceCandidates, members]
-  );
-  const [referenceMemberId, setReferenceMemberId] = useState(defaultReference?.id);
-  const referenceMember =
-    members.find((m) => m.id === referenceMemberId) ?? defaultReference;
-
   const hasResting = members.some((m) => m.isResting);
+
+  // ヒートマップはアメダスの実測気温・湿度に基づく
+  const { stations: weatherStations } = useAreaWeather(WEATHER_SEARCH_BOUNDS);
 
   const memberPositions = useMemo(() => {
     const positions: Record<string, { x: number; y: number }> = {};
@@ -77,13 +65,37 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
     return positions;
   }, [members]);
 
-  const visibleSpots = mockMapSpots.filter((spot) => {
+  // コンビニ・自販機はOpenStreetMap(Overpass API)の実データを取得し、取得中・失敗時はモックにフォールバックする
+  const { spots: liveSpots, status: liveSpotsStatus } = useNearbySpots(MAP_BOUNDS);
+  const convenienceVendingSpots =
+    liveSpotsStatus === 'success'
+      ? liveSpots
+      : mockMapSpots.filter((spot) => spot.type === 'convenience' || spot.type === 'vending');
+  const waterCafeSpots = mockMapSpots.filter((spot) => spot.type === 'water' || spot.type === 'cafe');
+
+  const visibleSpots = [...convenienceVendingSpots, ...waterCafeSpots].filter((spot) => {
     if (spot.type === 'convenience') return convenienceEnabled;
     if (spot.type === 'vending') return vendingEnabled;
     return true; // 給水スポット・カフェは常時表示
   });
 
-  if (members.length === 0 || !referenceMember) {
+  const spotPositions: Record<string, { x: number; y: number }> = {};
+  visibleSpots.forEach((spot) => {
+    spotPositions[spot.id] = projectToMap(spot.latitude, spot.longitude);
+  });
+
+  const handleLocatePress = () => {
+    if (selfLocationStatus === 'denied') {
+      Alert.alert(
+        '位置情報の利用が許可されていません',
+        '端末の設定から位置情報へのアクセスを許可してください。'
+      );
+      return;
+    }
+    refreshSelfLocation();
+  };
+
+  if (members.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -115,8 +127,7 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
 
       <View style={styles.mapArea}>
         <View style={styles.mapBackground}>
-          <View style={[styles.road, styles.roadHorizontal]} />
-          <View style={[styles.road, styles.roadVertical]} />
+          <MapBackgroundLayer stations={STATIONS} />
 
           {AREAS.map((area) => (
             <Text
@@ -134,12 +145,15 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
             </View>
           ))}
 
-          {heatmapEnabled && (
-            <MapHeatmapLayer members={members} positions={memberPositions} />
-          )}
+          {heatmapEnabled && <MapHeatmapLayer stations={weatherStations} />}
 
           {visibleSpots.map((spot) => (
-            <MapSpotPin key={spot.id} spot={spot} />
+            <MapSpotPin
+              key={spot.id}
+              spot={spot}
+              x={spotPositions[spot.id].x}
+              y={spotPositions[spot.id].y}
+            />
           ))}
 
           {membersEnabled &&
@@ -155,7 +169,7 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
         </View>
 
         <View style={styles.legendWrapper} pointerEvents="box-none">
-          <MapLegendCard referenceMemberName={referenceMember.name} />
+          <MapLegendCard />
         </View>
 
         {hasResting && (
@@ -175,16 +189,10 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
             onToggleConvenience={setConvenienceEnabled}
             vendingEnabled={vendingEnabled}
             onToggleVending={setVendingEnabled}
-            referenceCandidates={referenceCandidates}
-            referenceMember={referenceMember}
-            onSelectReferenceMember={(member) => setReferenceMemberId(member.id)}
           />
         </View>
 
-        <TouchableOpacity
-          style={styles.locateButton}
-          activeOpacity={0.8}
-          onPress={() => Alert.alert('現在地', '現在地への移動は準備中です。')}>
+        <TouchableOpacity style={styles.locateButton} activeOpacity={0.8} onPress={handleLocatePress}>
           <Navigation size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -239,29 +247,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#EAEFF2',
-  },
-  road: {
-    position: 'absolute',
-    backgroundColor: '#FFFFFF',
-  },
-  roadHorizontal: {
-    top: '45%',
-    left: 0,
-    right: 0,
-    height: 10,
-  },
-  roadVertical: {
-    left: '30%',
-    top: 0,
-    bottom: 0,
-    width: 8,
   },
   areaLabel: {
     position: 'absolute',
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8A94A6',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7684',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
   },
   stationTag: {
     position: 'absolute',

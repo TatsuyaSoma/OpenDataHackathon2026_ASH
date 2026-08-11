@@ -5,21 +5,20 @@ import { MAP_SPOT_CONFIG } from '../constants/mapSpotConfig';
 
 interface Props {
   spot: MapSpot;
+  x: number; // マップ表示エリア内の水平位置（0〜1）
+  y: number; // マップ表示エリア内の垂直位置（0〜1）
 }
 
 /**
  * コンビニ・自販機・給水スポット・カフェを表すピン。
  * 角丸の四角形＋下端の小さな三角（tail）でマップピン風の見た目にしている。
  */
-export const MapSpotPin: React.FC<Props> = ({ spot }) => {
+export const MapSpotPin: React.FC<Props> = ({ spot, x, y }) => {
   const config = MAP_SPOT_CONFIG[spot.type];
 
   return (
     <View
-      style={[
-        styles.wrapper,
-        { left: `${spot.x * 100}%`, top: `${spot.y * 100}%` },
-      ]}
+      style={[styles.wrapper, { left: `${x * 100}%`, top: `${y * 100}%` }]}
       pointerEvents="none">
       <View style={[styles.body, { backgroundColor: config.color }]}>
         <config.Icon size={14} color="#FFFFFF" />

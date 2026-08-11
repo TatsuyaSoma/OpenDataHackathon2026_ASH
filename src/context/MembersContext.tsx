@@ -1,6 +1,8 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Member } from '../types';
 import { mockMembers } from '../data/mockData';
+import { DeviceLocationStatus, useDeviceLocation } from '../hooks/use-device-location';
+import { useNearbyWeather } from '../hooks/use-nearby-weather';
 
 interface MembersContextValue {
   members: Member[];
@@ -9,7 +11,11 @@ interface MembersContextValue {
   updateMember: (member: Member) => void;
   removeAllMembers: () => void;
   toggleResting: (id: string) => void;
+  selfLocationStatus: DeviceLocationStatus;
+  refreshSelfLocation: () => void;
 }
+
+const formatTimeLabel = (date: Date) => `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
 
 const MembersContext = createContext<MembersContextValue | undefined>(undefined);
 
@@ -46,19 +52,96 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (member.id !== id) return member;
         const nextResting = !member.isResting;
         const now = new Date();
-        const timeLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
         return {
           ...member,
           isResting: nextResting,
-          restStartedAt: nextResting ? timeLabel : undefined,
+          restStartedAt: nextResting ? formatTimeLabel(now) : undefined,
         };
       })
     );
   }, []);
 
+  // この端末を使っている本人（isSelf: true のメンバー）の位置情報を、実際の現在地で自動更新する
+  const deviceLocation = useDeviceLocation();
+
+  useEffect(() => {
+    const { status, latitude, longitude, address, errorMessage } = deviceLocation;
+    if (status === 'requesting') return;
+
+    setMembers((prev) =>
+      prev.map((member) => {
+        if (!member.isSelf) return member;
+        if (status === 'granted' && latitude !== undefined && longitude !== undefined) {
+          return {
+            ...member,
+            location: {
+              address: address ?? member.location.address,
+              latitude,
+              longitude,
+            },
+            lastUpdated: formatTimeLabel(new Date()),
+          };
+        }
+        if (status === 'denied') {
+          return {
+            ...member,
+            location: { ...member.location, address: '位置情報の利用が許可されていません' },
+          };
+        }
+        if (status === 'error') {
+          return {
+            ...member,
+            location: { ...member.location, address: errorMessage ?? '現在地を取得できませんでした' },
+          };
+        }
+        return member;
+      })
+    );
+  }, [
+    deviceLocation.status,
+    deviceLocation.latitude,
+    deviceLocation.longitude,
+    deviceLocation.address,
+    deviceLocation.errorMessage,
+  ]);
+
+  // 本人の実際の現在地に対応する気温・湿度を、気象庁アメダスの実データで自動更新する
+  const nearbyWeather = useNearbyWeather(deviceLocation.latitude, deviceLocation.longitude);
+
+  useEffect(() => {
+    if (nearbyWeather.status !== 'success' || !nearbyWeather.weather) return;
+    const { temperature, humidity } = nearbyWeather.weather;
+
+    setMembers((prev) =>
+      prev.map((member) =>
+        member.isSelf
+          ? { ...member, environment: { ...member.environment, temperature, humidity } }
+          : member
+      )
+    );
+  }, [nearbyWeather.status, nearbyWeather.weather]);
+
   const value = useMemo(
-    () => ({ members, getMemberById, addMember, updateMember, removeAllMembers, toggleResting }),
-    [members, getMemberById, addMember, updateMember, removeAllMembers, toggleResting]
+    () => ({
+      members,
+      getMemberById,
+      addMember,
+      updateMember,
+      removeAllMembers,
+      toggleResting,
+      selfLocationStatus: deviceLocation.status,
+      refreshSelfLocation: deviceLocation.refresh,
+    }),
+    [
+      members,
+      getMemberById,
+      addMember,
+      updateMember,
+      removeAllMembers,
+      toggleResting,
+      deviceLocation.status,
+      deviceLocation.refresh,
+    ]
   );
 
   return <MembersContext.Provider value={value}>{children}</MembersContext.Provider>;

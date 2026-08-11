@@ -1,6 +1,25 @@
 import { MapSpot, Member, NotificationItem } from '../types';
+import { unprojectFromMap } from '../utils/mapProjection';
 
 export const mockMembers: Member[] = [
+  {
+    // この端末を使っている本人。名前・年齢・性別は仮の値のため、設定 > メンバ管理から編集してください。
+    // locationはアプリ起動時にexpo-locationで取得した実際の現在地に自動更新されます（許可されるまでは仮の値）。
+    id: 'member-self',
+    name: '自分',
+    age: 30,
+    gender: 'その他',
+    isSelf: true,
+    location: {
+      address: '位置情報を取得中…',
+      latitude: 35.681236,
+      longitude: 139.767125,
+    },
+    environment: { temperature: 0, humidity: 0 },
+    riskLevel: 'safeLight',
+    lastUpdated: '—',
+    isResting: false,
+  },
   {
     id: 'member-1',
     name: 'お父さん',
@@ -111,8 +130,10 @@ export const mockMembers: Member[] = [
   },
 ];
 
-// マップ画面用のスポットのモックデータ（東京都オープンデータ連携までの仮データ）
-export const mockMapSpots: MapSpot[] = [
+// マップ画面用スポットの仮レイアウト（0〜1の正規化座標で見た目のバランスを取って手配置したもの）。
+// 緯度経度に変換してMapSpot化する。コンビニ・自販機は起動時にOpenStreetMap(Overpass API)の実データへ
+// 差し替わるが、取得中・失敗時のフォールバックとしてもこの配列を使う。給水スポット・カフェは引き続きこのモックのみ。
+const MOCK_SPOT_LAYOUT: { id: string; type: MapSpot['type']; name: string; x: number; y: number }[] = [
   { id: 'spot-1', type: 'convenience', name: 'コンビニ（新宿北口）', x: 0.28, y: 0.24 },
   { id: 'spot-2', type: 'convenience', name: 'コンビニ（飯田橋）', x: 0.33, y: 0.16 },
   { id: 'spot-3', type: 'convenience', name: 'コンビニ（丸の内）', x: 0.62, y: 0.36 },
@@ -129,6 +150,11 @@ export const mockMapSpots: MapSpot[] = [
   { id: 'spot-14', type: 'cafe', name: 'カフェ（新宿）', x: 0.29, y: 0.47 },
   { id: 'spot-15', type: 'cafe', name: 'カフェ（飯田橋）', x: 0.89, y: 0.31 },
 ];
+
+export const mockMapSpots: MapSpot[] = MOCK_SPOT_LAYOUT.map(({ x, y, ...spot }) => ({
+  ...spot,
+  ...unprojectFromMap(x, y),
+}));
 
 // 通知履歴のモックデータ
 export const mockNotifications: NotificationItem[] = [

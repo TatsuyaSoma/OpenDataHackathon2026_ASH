@@ -19,7 +19,7 @@ export default function MemberDetailRoute() {
     snapshotLocation?: string;
   }>();
   const router = useRouter();
-  const { getMemberById } = useMembers();
+  const { getMemberById, selfLocationStatus, refreshSelfLocation } = useMembers();
   const member = getMemberById(id);
 
   if (!member) {
@@ -46,8 +46,10 @@ export default function MemberDetailRoute() {
     <CardDetailScreen
       member={displayMember}
       historicalNotice={historicalNotice}
+      locationStatus={member.isSelf ? selfLocationStatus : undefined}
       onBack={() => router.back()}
       onOpenMap={() => router.push('/map')}
+      onRefreshLocation={member.isSelf ? refreshSelfLocation : undefined}
     />
   );
 }

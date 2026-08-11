@@ -1,38 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, StatusBar, Alert } from 'react-native';
-import { Bell, Database, Settings as SettingsIcon } from 'lucide-react-native';
-import type { LucideIcon } from 'lucide-react-native';
 import { Member } from '../types';
 import { colors, spacing } from '../constants/theme';
 import { useMembers } from '../context/MembersContext';
 import { SettingsSubTabBar, SettingsTabKey } from '../components/SettingsSubTabBar';
 import { MemberManagementSection } from '../components/MemberManagementSection';
 import { RestModeSection } from '../components/RestModeSection';
-
-interface StubSectionDef {
-  title: string;
-  message: string;
-  Icon: LucideIcon;
-}
-
-// メンバ管理・お休みモード以外のタブは未着手のため、準備中の案内のみを表示する
-const STUB_SECTIONS: Record<Exclude<SettingsTabKey, 'members' | 'rest'>, StubSectionDef> = {
-  notifications: {
-    title: '通知設定',
-    message: '通知の受け取り方法・危険度の通知しきい値の設定は準備中です。',
-    Icon: Bell,
-  },
-  app: {
-    title: 'アプリ設定',
-    message: 'テーマや表示に関する設定は準備中です。',
-    Icon: SettingsIcon,
-  },
-  data: {
-    title: 'データ・その他',
-    message: 'データのエクスポートやアプリ情報の確認は準備中です。',
-    Icon: Database,
-  },
-};
+import { NotificationSettingsSection } from '../components/NotificationSettingsSection';
+import { AppSettingsSection } from '../components/AppSettingsSection';
 
 interface Props {
   onAddMember?: () => void; // メンバ登録画面への遷移（未指定時はモック案内を表示）
@@ -40,8 +15,7 @@ interface Props {
 }
 
 /**
- * 設定画面。メンバ管理／お休みモード／通知設定／アプリ設定／データ・その他のサブタブを持つ。
- * 現状はメンバ管理のみ実装済みで、他は準備中の案内を表示する。
+ * 設定画面。メンバ管理／お休みモード／通知設定／アプリ設定のサブタブを持つ。
  */
 export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember }) => {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('members');
@@ -98,21 +72,15 @@ export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember }) =
           />
         ) : activeTab === 'rest' ? (
           <RestModeSection members={members} onToggleResting={toggleResting} />
+        ) : activeTab === 'notifications' ? (
+          <NotificationSettingsSection members={members} />
         ) : (
-          <StubSection {...STUB_SECTIONS[activeTab]} />
+          <AppSettingsSection />
         )}
       </ScrollView>
     </SafeAreaView>
   );
 };
-
-const StubSection: React.FC<StubSectionDef> = ({ title, message, Icon }) => (
-  <View style={styles.stub}>
-    <Icon size={36} color={colors.textSecondary} />
-    <Text style={styles.stubTitle}>{title}</Text>
-    <Text style={styles.stubMessage}>{message}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -130,22 +98,5 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-  },
-  stub: {
-    alignItems: 'center',
-    paddingVertical: 64,
-  },
-  stubTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-  },
-  stubMessage: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
   },
 });

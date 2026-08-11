@@ -39,8 +39,8 @@ export interface MapSpot {
   id: string;
   type: MapSpotType;
   name: string;
-  x: number; // マップ表示エリア内の水平位置（0〜1の正規化座標。モックのため実座標は未使用）
-  y: number; // マップ表示エリア内の垂直位置（0〜1の正規化座標）
+  latitude: number;
+  longitude: number;
 }
 
 // 通知履歴の1件分
@@ -60,6 +60,7 @@ export interface Member {
   name: string;
   age: number;
   gender: Gender;
+  isSelf?: boolean;          // trueの場合、この端末を使っている本人。locationはexpo-locationで取得した実際の現在地に自動更新される
   birthDate?: string;        // 生年月日（表示用 "1957年3月15日" 形式）
   homeAddress?: string;       // 自宅住所（現在地とは別。カード詳細の基本情報に表示）
   medicalNotes?: string;       // 持病・注意事項

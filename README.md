@@ -101,9 +101,22 @@ src/
 
 ## セットアップ
 
+### 前提条件
+
+- **Node.js 22.13.x 以上**（Expo SDK 57の必須要件。`node -v` で確認してください）
+- 実機やシミュレータで確認する場合は、以下のいずれかを用意してください
+  - **Expo Go**：[Expo Go](https://expo.dev/go) アプリを実機にインストールするだけで動作確認可能（一番手軽な方法）
+  - **Android実機／エミュレータ**：エミュレータを使う場合は [Android Studio](https://docs.expo.dev/workflow/android-studio-emulator/) のインストールが必要
+  - **iOSシミュレータ**：Mac限定。[Xcode](https://docs.expo.dev/workflow/ios-simulator/)（Xcode 26.4+）のインストールが必要
+- Webで確認する場合は追加インストール不要（ブラウザのみでOK）
+
+### インストール
+
 ```bash
 npm install
 ```
+
+> ⚠️ `app.json` の `plugins` に `expo-image-picker` のカメラ／写真ライブラリ用の権限メッセージ（日本語文言）を設定していますが、これは[Config Plugin](https://docs.expo.dev/workflow/continuous-native-generation/)によるネイティブ設定の変更のため、**Expo Goには反映されません**（Expo Goは事前ビルド済みアプリのため、標準の権限メッセージのまま動作します）。この文言を実機で確認したい場合は、[development build](https://docs.expo.dev/develop/development-builds/introduction/)（`npx expo prebuild` または EAS Build）を作成してください。写真選択・撮影機能自体はExpo Go上でも動作します。
 
 ## 実行方法
 

@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { BedDouble, Bell, Database, Settings as SettingsIcon, Users } from 'lucide-react-native';
+import { BedDouble, Bell, Settings as SettingsIcon, Users } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, spacing } from '../constants/theme';
 
-export type SettingsTabKey = 'members' | 'rest' | 'notifications' | 'app' | 'data';
+export type SettingsTabKey = 'members' | 'rest' | 'notifications' | 'app';
 
 interface TabDef {
   key: SettingsTabKey;
@@ -17,7 +17,6 @@ const TABS: TabDef[] = [
   { key: 'rest', label: 'お休みモード', Icon: BedDouble },
   { key: 'notifications', label: '通知設定', Icon: Bell },
   { key: 'app', label: 'アプリ設定', Icon: SettingsIcon },
-  { key: 'data', label: 'データ・その他', Icon: Database },
 ];
 
 interface Props {
@@ -26,7 +25,7 @@ interface Props {
 }
 
 /**
- * 設定画面内のサブナビゲーション（メンバ管理／お休みモード／通知設定／アプリ設定／データ・その他）。
+ * 設定画面内のサブナビゲーション（メンバ管理／お休みモード／通知設定／アプリ設定）。
  */
 export const SettingsSubTabBar: React.FC<Props> = ({ activeTab, onChangeTab }) => {
   return (
