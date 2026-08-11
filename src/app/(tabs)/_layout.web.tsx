@@ -31,8 +31,8 @@ function TabButton({ Icon, children, isFocused, ...props }: TabButtonProps) {
  */
 export default function WebTabLayout() {
   return (
-    <Tabs>
-      <TabSlot />
+    <Tabs style={styles.root}>
+      <TabSlot style={styles.slot} />
       <TabList asChild>
         <View style={styles.tabList}>
           <TabTrigger name="index" href={HOME_HREF} asChild>
@@ -54,6 +54,14 @@ export default function WebTabLayout() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  slot: {
+    flex: 1,
+    // 下部固定タブバー（position:'fixed'）に隠れないよう余白を確保
+    paddingBottom: 64,
+  },
   tabList: {
     flexDirection: 'row',
     position: 'fixed',

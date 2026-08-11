@@ -1,12 +1,16 @@
-import { MapPin } from 'lucide-react-native';
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { useRouter } from 'expo-router';
+import { MapScreen } from '@/screens/MapScreen';
+import { Member } from '@/types';
 
 export default function MapRoute() {
+  const router = useRouter();
+
   return (
-    <PlaceholderScreen
-      title="マップ"
-      message="地図・メンバーのアイコン表示は準備中です。"
-      Icon={MapPin}
+    <MapScreen
+      onBack={() => router.back()}
+      onOpenMemberDetail={(member: Member) =>
+        router.push({ pathname: '/member/[id]', params: { id: member.id } })
+      }
     />
   );
 }

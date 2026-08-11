@@ -1,12 +1,23 @@
-import { Bell } from 'lucide-react-native';
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { useRouter } from 'expo-router';
+import { NotificationsScreen } from '@/screens/NotificationsScreen';
+import { Member, NotificationItem } from '@/types';
 
 export default function NotificationsRoute() {
+  const router = useRouter();
+
   return (
-    <PlaceholderScreen
-      title="通知履歴"
-      message="過去の通知一覧は準備中です。"
-      Icon={Bell}
+    <NotificationsScreen
+      onOpenMemberDetail={(member: Member, notification: NotificationItem) =>
+        router.push({
+          pathname: '/member/[id]',
+          params: {
+            id: member.id,
+            snapshotTime: notification.time,
+            snapshotRisk: notification.riskLevel,
+            snapshotLocation: notification.location,
+          },
+        })
+      }
     />
   );
 }

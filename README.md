@@ -6,77 +6,104 @@
 
 - 対応OS：iOS / Android（React Native + TypeScript、Expo Router）
 - 家族利用を想定。作成期間2週間程度のモックレベル実装
-- 環境データは東京都が公開しているオープンデータ（気温・湿度）を利用
+- 環境データは東京都が公開しているオープンデータ（気温・湿度）を利用予定（現状は未連携）
 
 ### 画面構成
 
 ```
-ホーム画面 ── カード詳細画面
-         ├─ マップ画面
-         ├─ 通知履歴画面
-         ├─ 設定画面 ── メンバ編集
-         └─ お休みモード設定
+(tabs) ボトムタブ
+  ├─ ホーム画面
+  ├─ マップ画面
+  ├─ 通知履歴画面
+  └─ 設定画面
+       ├─ メンバ管理（一覧・追加・編集・一括削除）
+       ├─ お休みモード（メンバー別ON/OFF・自動解除条件）
+       ├─ 通知設定（準備中）
+       ├─ アプリ設定（準備中）
+       └─ データ・その他（準備中）
+
+タブの上に重ねて表示するスタック画面
+  ├─ カード詳細画面（メンバーカードタップで遷移）
+  └─ メンバ登録／編集画面（新規登録・設定画面からの編集で共用）
 ```
 
 ### 主な機能
 
-- メンバーごとにリアルタイムで現在位置を取得し、現在地の環境（気温・湿度）と個別情報（年齢・性別）から熱中症の危険度を算出
-- 危険度は **水色→緑→黄色→橙→赤→紫** の6段階で表示し、閾値超過時は他メンバーへ通知
-- **ホーム画面**：メンバーごとのカード一覧、現在の危険者数バナー、お休みモード（位置が動くと自動解除）
-- **カード詳細画面**：登録情報・現在位置・現在の環境・最終更新時刻
-- **マップ画面**：メンバーアイコン＋危険度リング表示、お休み中アイコン、自販機/コンビニ等のピン、メンバー別ヒートマップ（年齢等に応じて内容変化）、レイヤーのON/OFF切り替え
-- **通知履歴画面**：危険度・メンバーでのフィルタ、過去1か月分の表示、「大丈夫？」「元気」のワンプッシュ返信
-- **設定画面**：見守り対象メンバーの登録・編集・削除（名前・年齢必須、性別・写真・自宅住所）
+- 危険度は **水色→緑→黄色→橙→赤→紫** の6段階（`src/constants/riskConfig.ts`で一元管理）
+- **ホーム画面**：メンバーごとのカード一覧、危険者数バナー、お休みモード導線
+- **カード詳細画面**：登録情報・現在位置・現在の環境・最終更新時刻・危険度推移グラフ。通知履歴から開いた場合は、通知発生時点の危険度・位置・時刻をスナップショットとして表示（現在の状況と異なる旨を明示するバナー付き）
+- **マップ画面**：メンバーアイコン＋危険度リング、お休み中バッジ、コンビニ/自販機/給水スポット/カフェのピン、メンバー別ヒートマップ（年齢に応じて範囲が変化）、各レイヤーのON/OFF切り替え、ヒートマップ基準メンバーの選択
+- **通知履歴画面**：危険度・メンバー・既読状態でのフィルタ、日付ごとのグループ表示、「大丈夫？」「元気」のワンプッシュ返信
+- **設定画面**：
+  - メンバ管理：一覧表示、新規登録・編集画面への導線、一括削除（実際にメンバー一覧から削除されます）
+  - お休みモード：メンバーごとのお休みON/OFF切り替え（実際に他画面にも反映されます）、自動解除条件（位置連動・通知しきい値30分単位・夜間通知OFF時間帯）※これらの条件設定自体は表示のみのモックです
+- **メンバ登録／編集画面**：名前・生年月日（必須）、性別、写真（カメラ撮影／アルバム選択に対応）、自宅住所（テキスト入力または地図上でピン指定）、備考を登録・編集。保存すると一覧に反映されます
 
-現在実装済みなのはホーム画面のみです（`src/screens/HomeScreen.tsx` 以下）。他画面は今後実装予定です。
+### 実装状況
+
+見た目・画面遷移・アプリ内で完結する操作（メンバーの追加/編集/削除、お休みモードの切り替え、通知履歴のフィルタ等）は一通り動作します。一方で、以下は未実装のモック/プレースホルダーです。
+
+- 熱中症危険度の算出ロジック（気温・湿度・年齢等からの計算）
+- 実際の位置情報取得（`expo-location`未導入）と、それに伴うお休みモードの自動解除
+- 東京都オープンデータとの連携（気温・湿度は`src/data/mockData.ts`の固定値）
+- 地図タイル表示（マップ画面・地図でピン指定は簡易的なプレースホルダー背景）
+- プッシュ通知の配信、通知設定／アプリ設定／データ・その他タブの中身
+- データの永続化（メンバー情報は`MembersContext`のメモリ上のstateのみで、アプリを再読み込みすると初期モックデータに戻ります）
 
 ## 技術スタック
 
-- [Expo](https://expo.dev) + [Expo Router](https://docs.expo.dev/router/introduction/)（`src/app` 配下のファイルベースルーティング）
+- [Expo](https://expo.dev) + [Expo Router](https://docs.expo.dev/router/introduction/)（`src/app` 配下のファイルベースルーティング。`(tabs)`グループ＋ルートStackの構成）
+  - ネイティブは`expo-router/unstable-native-tabs`、Webは下部固定タブバーを持たないため`expo-router/ui`のheadless tabsで代替実装（`src/app/(tabs)/_layout.web.tsx`）
 - React Native + TypeScript
-- [react-native-svg](https://github.com/software-mansion/react-native-svg)（危険度ゲージの円形プログレス表示）
+- [react-native-svg](https://github.com/software-mansion/react-native-svg)（危険度ゲージの円形プログレス、マップのヒートマップ表現）
 - [lucide-react-native](https://lucide.dev/)（アイコン）
+- [expo-image-picker](https://docs.expo.dev/versions/latest/sdk/imagepicker/)（メンバー写真のカメラ撮影／アルバム選択）
+- React Context（`src/context/MembersContext.tsx`）によるメンバー一覧の画面間共有state
 - react-native-reanimated / react-native-worklets（スプラッシュアニメーション）
 
 ## ディレクトリ構成（抜粋）
 
 ```
 src/
-  app/                 # Expo Routerのルーティング（画面遷移）
-    _layout.tsx
-    index.tsx            # ホーム画面のエントリ
+  app/                        # Expo Routerのルーティング（画面遷移）
+    _layout.tsx                 # ルートStack（(tabs) と member/[id], member/new を束ねる）
+    (tabs)/
+      _layout.tsx                 # ネイティブ用タブ（NativeTabs）
+      _layout.web.tsx              # Web用タブ（headless tabsで下部固定バーを自作）
+      index.tsx                     # ホーム
+      map.tsx
+      notifications.tsx
+      settings.tsx
+    member/
+      [id].tsx                    # カード詳細（通知履歴からのスナップショット表示に対応）
+      new.tsx                      # メンバ登録／編集（idパラメータの有無で切り替え）
   screens/
-    HomeScreen.tsx        # ホーム画面本体
+    HomeScreen.tsx / MapScreen.tsx / NotificationsScreen.tsx
+    SettingsScreen.tsx / MemberFormScreen.tsx / CardDetailScreen.tsx
   components/
-    MemberCard.tsx          # メンバーカード
-    RiskGauge.tsx             # 円形の危険度ゲージ
-    RiskBadge.tsx              # 危険度ラベルバッジ
-    AlertBanner.tsx             # 「現在の危険者：n名」バナー
-    RestModeBar.tsx               # お休みモード設定バー
-    app-tabs.tsx                   # 下部タブ（NativeTabs）
+    MemberCard.tsx / RiskGauge.tsx / RiskBadge.tsx / RiskTrendChart.tsx
+    Map*.tsx                        # マップ画面のピン・凡例・表示設定パネル・ヒートマップ層
+    Notification*.tsx                # 通知履歴の絞り込み・カード
+    MemberManagementSection.tsx / RestModeSection.tsx / SettingsSubTabBar.tsx
+    AddressMapPickerModal.tsx         # 自宅住所を地図ピンで指定するモーダル
+    app-tabs.tsx                       # NativeTabsの中身（ネイティブ用）
+  context/
+    MembersContext.tsx                 # メンバー一覧の共有state（追加・更新・削除・お休み切替）
   constants/
-    theme.ts                        # 色・余白・Spacing等（唯一の情報源）
-    riskConfig.ts                    # 危険度6段階の色・ラベル定義
+    theme.ts                            # 色・余白・Spacing等（唯一の情報源）
+    riskConfig.ts                        # 危険度6段階の色・ラベル定義
+    mapSpotConfig.ts                      # マップのスポット種別（コンビニ/自販機等）の色・アイコン
   data/
-    mockData.ts                       # 開発用モックデータ
+    mockData.ts                           # 開発用モックデータ（メンバー・通知・マップスポット）
   types/
-    index.ts                           # Member / RiskLevel 等の型定義
+    index.ts                               # Member / RiskLevel / NotificationItem 等の型定義
 ```
 
 ## セットアップ
 
-1. 依存パッケージのインストール
-
-   ```bash
-   npm install
-   ```
-
-2. 本プロジェクト固有の追加パッケージ（危険度ゲージ・アイコン表示に使用）
-
-   ```bash
-   npx expo install react-native-svg
-   npm install lucide-react-native
-   ```
+```bash
+npm install
+```
 
 ## 実行方法
 
@@ -90,6 +117,7 @@ npx expo start
 - [Android エミュレータ](https://docs.expo.dev/workflow/android-studio-emulator/)
 - [iOS シミュレータ](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go)
+- Web（`npx expo start --web`）。ただしカメラ撮影・アルバム選択などネイティブAPIに依存する機能は制限されるため、実機／シミュレータでの確認を推奨します
 
 テーマ関連の修正を反映した直後など、キャッシュが影響していそうな場合は `-c` オプションでキャッシュをクリアして起動してください。
 
@@ -97,13 +125,15 @@ npx expo start
 npx expo start -c
 ```
 
-`src/app` 配下がファイルベースルーティングのルートです。画面を追加する場合は `src/app` にファイルを追加し、必要に応じて `src/components/app-tabs.tsx` にタブを追加してください。
+`src/app` 配下がファイルベースルーティングのルートです。タブ画面を追加する場合は `src/app/(tabs)/` にファイルを追加し、`src/components/app-tabs.tsx`（ネイティブ）と `src/app/(tabs)/_layout.web.tsx`（Web）の両方にタブを追加してください。
 
 ## 既知の注意点・今後の実装予定
 
 - 危険度算出ロジック（GPS位置 × 東京都オープンデータの気温・湿度 × 年齢・性別）は未実装で、現状は `src/data/mockData.ts` の固定値を表示しています
-- マップ画面・通知履歴画面・設定画面は未実装です
+- 実際の位置情報取得（`expo-location`）は未導入のため、お休みモードの自動解除・マップ上の現在地表示は動作しません
 - プッシュ通知（危険度超過時の家族間通知、お休みモードの自動解除・通知からの設定）はネイティブ側の実装が必要です
+- メンバー情報は`MembersContext`のメモリ上stateのみで永続化されません。API連携・端末保存の導入が今後の課題です
+- 設定画面の「通知設定」「アプリ設定」「データ・その他」タブ、および「メンバーの並び替え」機能は未着手です
 - `react-native-worklets` の `scheduleOnRN` は Expo SDK 57 まわりの動作検証中のため、`src/components/animated-icon.tsx` では一時的に `setVisible` の直接呼び出しに置き換えています
 
 ## その他

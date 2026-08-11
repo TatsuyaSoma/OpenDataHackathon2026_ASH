@@ -70,6 +70,9 @@ export const colors = {
   bannerText: '#E53935',
   restBackground: '#EAF1FE',
   restBorder: '#C9DBFB',
+  successText: '#2E7D32',
+  successBackground: '#EAF7EC',
+  successBorder: '#C8E6C9',
 };
 
 export const spacing = {

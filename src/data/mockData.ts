@@ -1,4 +1,4 @@
-import { Member } from '../types';
+import { MapSpot, Member, NotificationItem } from '../types';
 
 export const mockMembers: Member[] = [
   {
@@ -108,5 +108,88 @@ export const mockMembers: Member[] = [
     ],
     lastUpdated: '9:39',
     isResting: false,
+  },
+];
+
+// マップ画面用のスポットのモックデータ（東京都オープンデータ連携までの仮データ）
+export const mockMapSpots: MapSpot[] = [
+  { id: 'spot-1', type: 'convenience', name: 'コンビニ（新宿北口）', x: 0.28, y: 0.24 },
+  { id: 'spot-2', type: 'convenience', name: 'コンビニ（飯田橋）', x: 0.33, y: 0.16 },
+  { id: 'spot-3', type: 'convenience', name: 'コンビニ（丸の内）', x: 0.62, y: 0.36 },
+  { id: 'spot-4', type: 'convenience', name: 'コンビニ（渋谷）', x: 0.14, y: 0.58 },
+  { id: 'spot-5', type: 'convenience', name: 'コンビニ（品川）', x: 0.9, y: 0.62 },
+  { id: 'spot-6', type: 'vending', name: '自販機（新宿東口）', x: 0.41, y: 0.19 },
+  { id: 'spot-7', type: 'vending', name: '自販機（飯田橋駅前）', x: 0.87, y: 0.14 },
+  { id: 'spot-8', type: 'vending', name: '自販機（丸の内）', x: 0.38, y: 0.42 },
+  { id: 'spot-9', type: 'vending', name: '自販機（品川）', x: 0.66, y: 0.85 },
+  { id: 'spot-10', type: 'water', name: '給水スポット（飯田橋）', x: 0.66, y: 0.15 },
+  { id: 'spot-11', type: 'water', name: '給水スポット（新宿）', x: 0.2, y: 0.36 },
+  { id: 'spot-12', type: 'water', name: '給水スポット（丸の内）', x: 0.62, y: 0.51 },
+  { id: 'spot-13', type: 'water', name: '給水スポット（品川）', x: 0.29, y: 0.82 },
+  { id: 'spot-14', type: 'cafe', name: 'カフェ（新宿）', x: 0.29, y: 0.47 },
+  { id: 'spot-15', type: 'cafe', name: 'カフェ（飯田橋）', x: 0.89, y: 0.31 },
+];
+
+// 通知履歴のモックデータ
+export const mockNotifications: NotificationItem[] = [
+  {
+    id: 'notif-1',
+    memberId: 'member-1',
+    riskLevel: 'danger',
+    changed: true,
+    location: '東京都千代田区丸の内1丁目',
+    time: '9:41',
+    dateLabel: '今日',
+    isRead: false,
+  },
+  {
+    id: 'notif-2',
+    memberId: 'member-2',
+    riskLevel: 'warning',
+    changed: true,
+    location: '東京都新宿区西新宿',
+    time: '8:15',
+    dateLabel: '今日',
+    isRead: false,
+  },
+  {
+    id: 'notif-3',
+    memberId: 'member-3',
+    riskLevel: 'safe',
+    changed: false,
+    location: '東京都渋谷区渋谷',
+    time: '7:50',
+    dateLabel: '今日',
+    isRead: true,
+  },
+  {
+    id: 'notif-4',
+    memberId: 'member-4',
+    riskLevel: 'safeLight',
+    changed: false,
+    location: '東京都目黒区中目黒',
+    time: '7:20',
+    dateLabel: '今日',
+    isRead: true,
+  },
+  {
+    id: 'notif-5',
+    memberId: 'member-1',
+    riskLevel: 'warning',
+    changed: true,
+    location: '東京都千代田区丸の内1丁目',
+    time: '18:30',
+    dateLabel: '昨日',
+    isRead: true,
+  },
+  {
+    id: 'notif-6',
+    memberId: 'member-4',
+    riskLevel: 'safeLight',
+    changed: false,
+    location: '東京都目黒区中目黒',
+    time: '18:00',
+    dateLabel: '昨日',
+    isRead: true,
   },
 ];

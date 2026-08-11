@@ -51,8 +51,7 @@ export const RiskGauge: React.FC<Props> = ({ riskLevel, size = 56, strokeWidth =
           strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={dashOffset}
           fill="none"
-          rotation={-90}
-          origin={`${center}, ${center}`}
+          transform={`rotate(-90 ${center} ${center})`}
         />
       </Svg>
     </View>

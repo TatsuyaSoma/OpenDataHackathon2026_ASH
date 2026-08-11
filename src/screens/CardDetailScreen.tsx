@@ -9,9 +9,9 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { ArrowLeft, MoreVertical } from 'lucide-react-native';
+import { ArrowLeft, History, MoreVertical } from 'lucide-react-native';
 import { Member } from '../types';
-import { colors, spacing } from '../constants/theme';
+import { colors, spacing, radius } from '../constants/theme';
 import { DetailMemberHeader } from '../components/DetailMemberHeader';
 import { RestStatusBanner } from '../components/RestStatusBanner';
 import { RiskLevelPanel } from '../components/RiskLevelPanel';
@@ -22,12 +22,19 @@ import { QuickReplyBar } from '../components/QuickReplyBar';
 
 interface Props {
   member: Member;
+  historicalNotice?: string; // 通知履歴から遷移した場合など、過去時点のスナップショットであることを示す注記
   onBack?: () => void;
   onOpenMap?: (member: Member) => void;
   onOpenMenu?: (member: Member) => void;
 }
 
-export const CardDetailScreen: React.FC<Props> = ({ member, onBack, onOpenMap, onOpenMenu }) => {
+export const CardDetailScreen: React.FC<Props> = ({
+  member,
+  historicalNotice,
+  onBack,
+  onOpenMap,
+  onOpenMenu,
+}) => {
   // お休み解除をこの画面上で即座に反映できるよう、ローカルstateとして保持
   // （実際にはサーバー/位置情報サービスへの反映後、上位のstateも更新する想定）
   const [isResting, setIsResting] = useState(member.isResting);
@@ -59,6 +66,13 @@ export const CardDetailScreen: React.FC<Props> = ({ member, onBack, onOpenMap, o
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {historicalNotice && (
+          <View style={styles.historicalBanner}>
+            <History size={16} color={colors.textSecondary} />
+            <Text style={styles.historicalBannerText}>{historicalNotice}</Text>
+          </View>
+        )}
+
         <DetailMemberHeader member={member} />
 
         <RiskLevelPanel riskLevel={member.riskLevel} riskHistory={member.riskHistory} />
@@ -106,5 +120,21 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  historicalBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  historicalBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
   },
 });

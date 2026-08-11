@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { MapPin, Moon, User } from 'lucide-react-native';
+import { ChevronRight, MapPin, Moon, User } from 'lucide-react-native';
 import { Member } from '../types';
 import { isHighRisk } from '../constants/riskConfig';
 import { colors, spacing, radius } from '../constants/theme';
@@ -10,13 +10,14 @@ import { RiskGauge } from './RiskGauge';
 interface Props {
   member: Member;
   onPress: (member: Member) => void;
+  showChevron?: boolean; // 設定画面のメンバ管理など「編集へ進む」導線で使う矢印表示
 }
 
 /**
  * ホーム画面に並ぶメンバー1人分のカード。
  * 危険度が「危険」「非常に危険」の場合は枠を赤くハイライトする。
  */
-export const MemberCard: React.FC<Props> = ({ member, onPress }) => {
+export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron }) => {
   const highlighted = isHighRisk(member.riskLevel) && !member.isResting;
   // 画像URLが無い/読み込み失敗した場合はイニシャルアイコンにフォールバックする（レビュー指摘反映）
   const [imageFailed, setImageFailed] = useState(false);
@@ -67,6 +68,10 @@ export const MemberCard: React.FC<Props> = ({ member, onPress }) => {
         <RiskBadge riskLevel={member.riskLevel} />
         <RiskGauge riskLevel={member.riskLevel} />
       </View>
+
+      {showChevron && (
+        <ChevronRight size={20} color={colors.textSecondary} style={styles.chevron} />
+      )}
     </TouchableOpacity>
   );
 };
@@ -153,5 +158,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     minHeight: 56,
+  },
+  chevron: {
+    marginLeft: spacing.xs,
   },
 });

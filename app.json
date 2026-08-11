@@ -32,6 +32,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "見守りメンバーの写真を選ぶために、写真ライブラリへのアクセスを許可してください。",
+          "cameraPermission": "見守りメンバーの写真を撮影するために、カメラへのアクセスを許可してください。"
+        }
       ]
     ],
     "experiments": {

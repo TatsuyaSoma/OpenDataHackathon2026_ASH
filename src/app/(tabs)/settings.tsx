@@ -1,12 +1,16 @@
-import { Settings } from 'lucide-react-native';
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { useRouter } from 'expo-router';
+import { SettingsScreen } from '@/screens/SettingsScreen';
+import { Member } from '@/types';
 
 export default function SettingsRoute() {
+  const router = useRouter();
+
   return (
-    <PlaceholderScreen
-      title="設定"
-      message="メンバー編集・お休みモード設定は準備中です。"
-      Icon={Settings}
+    <SettingsScreen
+      onAddMember={() => router.push('/member/new')}
+      onEditMember={(member: Member) =>
+        router.push({ pathname: '/member/new', params: { id: member.id } })
+      }
     />
   );
 }

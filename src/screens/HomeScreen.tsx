@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, StatusBar } from 'react-native';
 import { Member } from '../types';
 import { isHighRisk } from '../constants/riskConfig';
 import { colors, spacing } from '../constants/theme';
-import { mockMembers } from '../data/mockData';
+import { useMembers } from '../context/MembersContext';
 import { AlertBanner } from '../components/AlertBanner';
 import { MemberCard } from '../components/MemberCard';
 import { RestModeBar } from '../components/RestModeBar';
@@ -20,7 +20,7 @@ export const HomeScreen: React.FC<Props> = ({
   onOpenNotifications,
   onOpenRestModeSetting,
 }) => {
-  const [members] = useState<Member[]>(mockMembers);
+  const { members } = useMembers();
 
   // お休み中のメンバーは危険者数のカウントから除外する
   const dangerCount = useMemo(
