@@ -10,14 +10,20 @@ import { useMembers } from '@/context/MembersContext';
 export default function MemberFormRoute() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
-  const { getMemberById, addMember, updateMember } = useMembers();
+  const { getMemberById, addMember, updateMember, removeMember } = useMembers();
   const initialMember = id ? getMemberById(id) : undefined;
 
   return (
     <MemberFormScreen
       initialMember={initialMember}
-      onBack={() => router.back()}
+      // Web版はページ再読み込み後にrouter.back()が機能しないことがあるため、
+      // 確実に遷移できるよう戻り先を明示してreplaceする
+      onBack={() => router.replace('/settings')}
       onSubmit={(member) => (initialMember ? updateMember(member) : addMember(member))}
+      onDelete={(member) => {
+        removeMember(member.id);
+        router.replace('/settings');
+      }}
     />
   );
 }

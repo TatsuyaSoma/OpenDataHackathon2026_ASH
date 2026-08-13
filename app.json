@@ -45,7 +45,8 @@
         {
           "locationWhenInUsePermission": "あなたの現在地を家族に共有するために、位置情報へのアクセスを許可してください。"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,14 +1,19 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Member } from '../types';
 import { mockMembers } from '../data/mockData';
 import { DeviceLocationStatus, useDeviceLocation } from '../hooks/use-device-location';
 import { useNearbyWeather } from '../hooks/use-nearby-weather';
+import { estimateRiskLevel, estimateRiskScore } from '../logic/riskCalculation';
+import { isHighRisk, RISK_CONFIG } from '../constants/riskConfig';
+import { haversineDistanceMeters } from '../utils/geo';
+import { requestNotificationPermission, sendDangerNotification } from '../services/localNotifications';
 
 interface MembersContextValue {
   members: Member[];
   getMemberById: (id: string) => Member | undefined;
   addMember: (member: Member) => void;
   updateMember: (member: Member) => void;
+  removeMember: (id: string) => void;
   removeAllMembers: () => void;
   toggleResting: (id: string) => void;
   selfLocationStatus: DeviceLocationStatus;
@@ -16,6 +21,9 @@ interface MembersContextValue {
 }
 
 const formatTimeLabel = (date: Date) => `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+// お休み開始地点からこの距離（メートル）以上動いたら、自動でお休みモードを解除する
+const REST_AUTO_RELEASE_DISTANCE_METERS = 300;
 
 const MembersContext = createContext<MembersContextValue | undefined>(undefined);
 
@@ -28,9 +36,21 @@ const MembersContext = createContext<MembersContextValue | undefined>(undefined)
 export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [members, setMembers] = useState<Member[]>(mockMembers);
 
-  const getMemberById = useCallback(
-    (id: string) => members.find((member) => member.id === id),
+  // riskLevel/riskScoreは保存済みの値をそのまま信用せず、現在の気温・湿度から都度算出する
+  // （算出ロジックはsrc/logic/riskCalculation.tsに集約しており、差し替えるとここにも自動で反映される）
+  const derivedMembers = useMemo(
+    () =>
+      members.map((member) => ({
+        ...member,
+        riskLevel: estimateRiskLevel({ ...member.environment, age: member.age }),
+        riskScore: estimateRiskScore({ ...member.environment, age: member.age }),
+      })),
     [members]
+  );
+
+  const getMemberById = useCallback(
+    (id: string) => derivedMembers.find((member) => member.id === id),
+    [derivedMembers]
   );
 
   const addMember = useCallback((member: Member) => {
@@ -41,11 +61,16 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setMembers((prev) => prev.map((member) => (member.id === updated.id ? updated : member)));
   }, []);
 
+  const removeMember = useCallback((id: string) => {
+    setMembers((prev) => prev.filter((member) => member.id !== id));
+  }, []);
+
   const removeAllMembers = useCallback(() => {
     setMembers([]);
   }, []);
 
-  // お休みモードのON/OFFを切り替える。ONにした瞬間の時刻を開始時刻として記録する。
+  // お休みモードのON/OFFを切り替える。ONにした瞬間の時刻・位置（本人のみ）を記録する。
+  // 記録した位置は、自動解除の判定（後述のuseEffect）に使う。
   const toggleResting = useCallback((id: string) => {
     setMembers((prev) =>
       prev.map((member) => {
@@ -56,6 +81,10 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...member,
           isResting: nextResting,
           restStartedAt: nextResting ? formatTimeLabel(now) : undefined,
+          restStartedLocation:
+            nextResting && member.isSelf
+              ? { latitude: member.location.latitude, longitude: member.location.longitude }
+              : undefined,
         };
       })
     );
@@ -72,6 +101,17 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
       prev.map((member) => {
         if (!member.isSelf) return member;
         if (status === 'granted' && latitude !== undefined && longitude !== undefined) {
+          // お休み中に、開始地点から一定距離以上動いたら自動でお休みモードを解除する
+          const movedAwayFromRestStart =
+            member.isResting &&
+            member.restStartedLocation !== undefined &&
+            haversineDistanceMeters(
+              member.restStartedLocation.latitude,
+              member.restStartedLocation.longitude,
+              latitude,
+              longitude
+            ) > REST_AUTO_RELEASE_DISTANCE_METERS;
+
           return {
             ...member,
             location: {
@@ -80,6 +120,9 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
               longitude,
             },
             lastUpdated: formatTimeLabel(new Date()),
+            ...(movedAwayFromRestStart
+              ? { isResting: false, restStartedAt: undefined, restStartedLocation: undefined }
+              : {}),
           };
         }
         if (status === 'denied') {
@@ -121,22 +164,41 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, [nearbyWeather.status, nearbyWeather.weather]);
 
+  // 本人の危険度が「危険」以上になった瞬間に、端末のローカル通知で知らせる
+  // （サーバーを介さないため、他メンバーの端末には届かない）
+  const previousSelfHighRiskRef = useRef(false);
+
+  useEffect(() => {
+    const self = derivedMembers.find((member) => member.isSelf);
+    if (!self) return;
+
+    const isCurrentlyHighRisk = isHighRisk(self.riskLevel);
+    if (isCurrentlyHighRisk && !previousSelfHighRiskRef.current) {
+      requestNotificationPermission().then((granted) => {
+        if (granted) sendDangerNotification(self.name, RISK_CONFIG[self.riskLevel].label);
+      });
+    }
+    previousSelfHighRiskRef.current = isCurrentlyHighRisk;
+  }, [derivedMembers]);
+
   const value = useMemo(
     () => ({
-      members,
+      members: derivedMembers,
       getMemberById,
       addMember,
       updateMember,
+      removeMember,
       removeAllMembers,
       toggleResting,
       selfLocationStatus: deviceLocation.status,
       refreshSelfLocation: deviceLocation.refresh,
     }),
     [
-      members,
+      derivedMembers,
       getMemberById,
       addMember,
       updateMember,
+      removeMember,
       removeAllMembers,
       toggleResting,
       deviceLocation.status,

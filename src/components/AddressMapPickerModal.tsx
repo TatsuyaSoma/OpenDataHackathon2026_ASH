@@ -58,7 +58,7 @@ export const AddressMapPickerModal: React.FC<Props> = ({ visible, onClose, onCon
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} onRequestClose={onClose}>
       <View style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} hitSlop={8}>

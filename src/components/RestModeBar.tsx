@@ -4,14 +4,14 @@ import { BedDouble } from 'lucide-react-native';
 import { colors, spacing, radius } from '../constants/theme';
 
 interface Props {
-  onPressSetting: () => void;
+  onPressStart: () => void;
 }
 
 /**
- * 「お休み（冷房が効いた部屋にいるよ）」の設定を促すバー。
- * 位置情報が動くと自動解除される旨を注記として表示する。
+ * 「お休み（冷房が効いた部屋にいるよ）」への切り替えを促すバー。
+ * ボタンを押すとその場でお休みモードがONになる（設定画面への遷移はしない）。
  */
-export const RestModeBar: React.FC<Props> = ({ onPressSetting }) => {
+export const RestModeBar: React.FC<Props> = ({ onPressStart }) => {
   return (
     <View style={styles.container}>
       <BedDouble size={22} color={colors.primary} style={styles.icon} />
@@ -19,8 +19,8 @@ export const RestModeBar: React.FC<Props> = ({ onPressSetting }) => {
         <Text style={styles.title}>お休み（冷房が効いた部屋にいるよ）</Text>
         <Text style={styles.subtitle}>位置が動いたら自動で解除します</Text>
       </View>
-      <TouchableOpacity style={styles.button} onPress={onPressSetting} activeOpacity={0.7}>
-        <Text style={styles.buttonText}>お休みを設定</Text>
+      <TouchableOpacity style={styles.button} onPress={onPressStart} activeOpacity={0.7}>
+        <Text style={styles.buttonText}>お休みにする</Text>
       </TouchableOpacity>
     </View>
   );

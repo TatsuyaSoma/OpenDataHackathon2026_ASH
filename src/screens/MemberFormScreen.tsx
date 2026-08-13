@@ -9,18 +9,22 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Alert,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, Calendar, Camera, FileText, Home, Mars, MapPinned, Plus, Save, User } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Camera, FileText, Home, Mars, MapPinned, Plus, Save, Trash2, User } from 'lucide-react-native';
 import { Gender, Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
+import { showAlert } from '../utils/crossPlatformAlert';
 import { AddressMapPickerModal } from '../components/AddressMapPickerModal';
+import { PhotoSourceModal } from '../components/PhotoSourceModal';
+import { ImageCropModal } from '../components/ImageCropModal';
 
 interface Props {
   initialMember?: Member; // 指定時は編集モード（未指定なら新規登録）
   onBack?: () => void;
   onSubmit?: (member: Member) => void;
+  onDelete?: (member: Member) => void; // 指定時のみ編集モードに削除ボタンを表示する
 }
 
 const GENDER_OPTIONS: Gender[] = ['男性', '女性', 'その他'];
@@ -45,7 +49,7 @@ const calculateAge = (year: number, month: number, day: number): number => {
  * 見守りメンバの新規登録・編集画面。
  * initialMember が渡された場合は編集モードとして扱い、フォームの内容で該当メンバーを更新する。
  */
-export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSubmit }) => {
+export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSubmit, onDelete }) => {
   const isEditMode = !!initialMember;
   const initialBirthDate = parseBirthDate(initialMember?.birthDate);
 
@@ -58,6 +62,8 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
   const [notes, setNotes] = useState(initialMember?.notes ?? '');
   const [photoUri, setPhotoUri] = useState(initialMember?.photoUrl);
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
+  const [photoSourceVisible, setPhotoSourceVisible] = useState(false);
+  const [pendingCropUri, setPendingCropUri] = useState<string>();
 
   const yearNumber = Number(birthYear);
   const monthNumber = Number(birthMonth);
@@ -74,9 +80,10 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
   const isValid = name.trim() !== '' && isBirthDateValid;
 
   const handleTakePhoto = async () => {
+    setPhotoSourceVisible(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('権限がありません', 'カメラへのアクセスが許可されていません。端末の設定から許可してください。');
+      showAlert('権限がありません', 'カメラへのアクセスが許可されていません。端末の設定から許可してください。');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -91,9 +98,10 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
   };
 
   const handlePickFromLibrary = async () => {
+    setPhotoSourceVisible(false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('権限がありません', '写真ライブラリへのアクセスが許可されていません。端末の設定から許可してください。');
+      showAlert('権限がありません', '写真ライブラリへのアクセスが許可されていません。端末の設定から許可してください。');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -102,22 +110,21 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
       aspect: [1, 1],
       quality: 0.7,
     });
-    if (!result.canceled) {
+    if (result.canceled) return;
+
+    // WebはallowsEditingが未対応（無視される）ため、選んだ画像を専用の切り抜きモーダルに渡す
+    if (Platform.OS === 'web') {
+      setPendingCropUri(result.assets[0].uri);
+    } else {
       setPhotoUri(result.assets[0].uri);
     }
   };
 
-  const handlePickPhoto = () => {
-    Alert.alert('写真を追加', '取得方法を選んでください。', [
-      { text: 'カメラで撮影', onPress: handleTakePhoto },
-      { text: 'アルバムから選択', onPress: handlePickFromLibrary },
-      { text: 'キャンセル', style: 'cancel' },
-    ]);
-  };
+  const handlePickPhoto = () => setPhotoSourceVisible(true);
 
   const handleSave = () => {
     if (!isValid) {
-      Alert.alert('入力エラー', '名前と生年月日（※必須項目）を正しく入力してください。');
+      showAlert('入力エラー', '名前と生年月日（※必須項目）を正しく入力してください。');
       return;
     }
 
@@ -156,12 +163,24 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
         };
 
     onSubmit?.(member);
-    Alert.alert(
+    showAlert(
       isEditMode ? '保存しました' : '登録しました',
       isEditMode
-        ? `${name}さんの情報を更新しました。`
-        : `${name}さんを見守りメンバに登録しました。`,
+        ? `${name}の情報を更新しました。`
+        : `${name}を見守りメンバに登録しました。`,
       [{ text: 'OK', onPress: () => onBack?.() }]
+    );
+  };
+
+  const handleDelete = () => {
+    if (!initialMember) return;
+    showAlert(
+      'メンバーを削除',
+      `${initialMember.name}を見守りメンバから削除します。よろしいですか？`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: '削除する', style: 'destructive', onPress: () => onDelete?.(initialMember) },
+      ]
     );
   };
 
@@ -187,18 +206,24 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>写真</Text>
-          <TouchableOpacity style={styles.photoWrapper} activeOpacity={0.7} onPress={handlePickPhoto}>
-            {photoUri ? (
-              <Image source={{ uri: photoUri }} style={styles.photoImage} />
-            ) : (
-              <View style={styles.photoCircle}>
-                <Camera size={28} color={colors.textSecondary} />
+          <View style={styles.photoWrapper}>
+            <TouchableOpacity activeOpacity={0.7} onPress={handlePickPhoto}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoImage} />
+              ) : (
+                <View style={styles.photoCircle}>
+                  <User size={32} color={colors.textSecondary} />
+                </View>
+              )}
+              <View style={styles.photoEditBadge}>
+                <Camera size={14} color="#FFFFFF" />
               </View>
-            )}
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.photoButton} activeOpacity={0.7} onPress={handlePickPhoto}>
+            <Camera size={16} color={colors.primary} />
+            <Text style={styles.photoButtonText}>{photoUri ? '写真を変更' : '写真を追加'}</Text>
           </TouchableOpacity>
-          <Text style={styles.photoAddText} onPress={handlePickPhoto}>
-            {photoUri ? '写真を変更' : '写真を追加'}
-          </Text>
           <Text style={styles.photoCaption}>※カメラ撮影・アルバムどちらからも選べます</Text>
         </View>
 
@@ -326,6 +351,13 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
             {isEditMode ? '　保存する' : '　登録する'}
           </Text>
         </TouchableOpacity>
+
+        {isEditMode && onDelete && !initialMember?.isSelf && (
+          <TouchableOpacity style={styles.deleteButton} activeOpacity={0.8} onPress={handleDelete}>
+            <Trash2 size={16} color={colors.bannerText} />
+            <Text style={styles.deleteButtonText}>このメンバーを削除</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <AddressMapPickerModal
@@ -334,6 +366,23 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
         onConfirm={(address) => {
           setHomeAddress(address);
           setMapPickerVisible(false);
+        }}
+      />
+
+      <PhotoSourceModal
+        visible={photoSourceVisible}
+        onClose={() => setPhotoSourceVisible(false)}
+        onSelectCamera={handleTakePhoto}
+        onSelectLibrary={handlePickFromLibrary}
+      />
+
+      <ImageCropModal
+        visible={!!pendingCropUri}
+        imageUri={pendingCropUri}
+        onCancel={() => setPendingCropUri(undefined)}
+        onConfirm={(croppedUri) => {
+          setPhotoUri(croppedUri);
+          setPendingCropUri(undefined);
         }}
       />
     </SafeAreaView>
@@ -414,12 +463,35 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: 48,
   },
-  photoAddText: {
-    textAlign: 'center',
+  photoEditBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoButton: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+  },
+  photoButtonText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginTop: spacing.sm,
+    fontWeight: '700',
+    color: colors.primary,
+    marginLeft: 6,
   },
   photoCaption: {
     textAlign: 'center',
@@ -543,5 +615,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.bannerText,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+  },
+  deleteButtonText: {
+    color: colors.bannerText,
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: spacing.sm,
   },
 });

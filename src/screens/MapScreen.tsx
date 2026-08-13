@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { ArrowLeft, BedDouble, Navigation } from 'lucide-react-native';
 import { Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
+import { showAlert } from '../utils/crossPlatformAlert';
 import { mockMapSpots } from '../data/mockData';
 import { useMembers } from '../context/MembersContext';
 import { useNearbySpots } from '../hooks/use-nearby-spots';
@@ -51,6 +52,8 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
   const [membersEnabled, setMembersEnabled] = useState(true);
   const [convenienceEnabled, setConvenienceEnabled] = useState(true);
   const [vendingEnabled, setVendingEnabled] = useState(true);
+  const [cafeEnabled, setCafeEnabled] = useState(true);
+  const [waterEnabled, setWaterEnabled] = useState(true);
 
   const hasResting = members.some((m) => m.isResting);
 
@@ -76,7 +79,8 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
   const visibleSpots = [...convenienceVendingSpots, ...waterCafeSpots].filter((spot) => {
     if (spot.type === 'convenience') return convenienceEnabled;
     if (spot.type === 'vending') return vendingEnabled;
-    return true; // 給水スポット・カフェは常時表示
+    if (spot.type === 'cafe') return cafeEnabled;
+    return waterEnabled; // water
   });
 
   const spotPositions: Record<string, { x: number; y: number }> = {};
@@ -86,7 +90,7 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
 
   const handleLocatePress = () => {
     if (selfLocationStatus === 'denied') {
-      Alert.alert(
+      showAlert(
         '位置情報の利用が許可されていません',
         '端末の設定から位置情報へのアクセスを許可してください。'
       );
@@ -189,6 +193,10 @@ export const MapScreen: React.FC<Props> = ({ onBack, onOpenMemberDetail }) => {
             onToggleConvenience={setConvenienceEnabled}
             vendingEnabled={vendingEnabled}
             onToggleVending={setVendingEnabled}
+            cafeEnabled={cafeEnabled}
+            onToggleCafe={setCafeEnabled}
+            waterEnabled={waterEnabled}
+            onToggleWater={setWaterEnabled}
           />
         </View>
 

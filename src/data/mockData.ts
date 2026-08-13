@@ -1,15 +1,26 @@
+import { Asset } from 'expo-asset';
 import { MapSpot, Member, NotificationItem } from '../types';
 import { unprojectFromMap } from '../utils/mapProjection';
 
+// 実在の人物の顔写真（肖像権の懸念がある）は避け、いらすとや風のイラスト画像
+// （assets/images/members/配下）をモック用の写真として使用する。
+// require()したアセットモジュールをexpo-assetでURI文字列に変換し、既存のphotoUrl: string /
+// <Image source={{ uri: ... }}>の形に合わせる（react-native-webのImage.resolveAssetSourceは
+// 静的メソッドが未実装のため、ネイティブ／Web両対応のexpo-assetを使用する）。
+const memberPhotoUri = (asset: number) => Asset.fromModule(asset).uri;
+
 export const mockMembers: Member[] = [
   {
-    // この端末を使っている本人。名前・年齢・性別は仮の値のため、設定 > メンバ管理から編集してください。
-    // locationはアプリ起動時にexpo-locationで取得した実際の現在地に自動更新されます（許可されるまでは仮の値）。
+    // この端末を使っている本人（母親）。locationはアプリ起動時にexpo-locationで取得した
+    // 実際の現在地に自動更新されます（許可されるまでは仮の値）。
     id: 'member-self',
-    name: '自分',
-    age: 30,
-    gender: 'その他',
+    name: 'お母さん',
+    age: 37,
+    gender: '女性',
     isSelf: true,
+    birthDate: '1989年6月14日',
+    homeAddress: '東京都千代田区丸の内1-1-1',
+    photoUrl: memberPhotoUri(require('@/assets/images/members/okaasan.png')),
     location: {
       address: '位置情報を取得中…',
       latitude: 35.681236,
@@ -23,12 +34,11 @@ export const mockMembers: Member[] = [
   {
     id: 'member-1',
     name: 'お父さん',
-    age: 68,
+    age: 41,
     gender: '男性',
-    birthDate: '1957年3月15日',
+    birthDate: '1985年2月3日',
     homeAddress: '東京都千代田区丸の内1-1-1',
-    medicalNotes: '高血圧（降圧剤服用中）',
-    photoUrl: 'https://i.pravatar.cc/150?img=51',
+    photoUrl: memberPhotoUri(require('@/assets/images/members/otousan.png')),
     location: {
       address: '東京都千代田区丸の内1丁目',
       latitude: 35.6812,
@@ -46,18 +56,19 @@ export const mockMembers: Member[] = [
       { time: '9:41', riskLevel: 'severe' },
     ],
     lastUpdated: '9:41',
-    // 実際の環境は「危険」レベルだが、本人は冷房の効いた部屋で休んでいる想定
+    // 実際の環境は「危険」レベルだが、本人は冷房の効いたオフィスで休んでいる想定
     isResting: true,
     restStartedAt: '9:15',
   },
   {
     id: 'member-2',
-    name: 'お母さん',
-    age: 65,
-    gender: '女性',
-    birthDate: '1960年7月2日',
+    name: 'おじいちゃん',
+    age: 66,
+    gender: '男性',
+    birthDate: '1960年11月8日',
     homeAddress: '東京都千代田区丸の内1-1-1',
-    photoUrl: 'https://i.pravatar.cc/150?img=47',
+    medicalNotes: '高血圧（降圧剤服用中）',
+    photoUrl: memberPhotoUri(require('@/assets/images/members/ojiichan.png')),
     location: {
       address: '東京都新宿区西新宿',
       latitude: 35.6896,
@@ -79,14 +90,15 @@ export const mockMembers: Member[] = [
   {
     id: 'member-3',
     name: 'お兄ちゃん',
-    age: 35,
+    age: 11,
     gender: '男性',
-    birthDate: '1990年11月20日',
+    birthDate: '2015年9月20日',
+    notes: '小学校5年生',
     homeAddress: '東京都千代田区丸の内1-1-1',
-    photoUrl: 'https://i.pravatar.cc/150?img=12',
+    photoUrl: memberPhotoUri(require('@/assets/images/members/oniichan.png')),
     location: {
       address: '東京都渋谷区渋谷',
-      latitude: 35.6580,
+      latitude: 35.658,
       longitude: 139.7016,
     },
     environment: { temperature: 29.8, humidity: 55, wbgt: 26.1, windSpeed: 2.8 },
@@ -105,11 +117,12 @@ export const mockMembers: Member[] = [
   {
     id: 'member-4',
     name: '妹',
-    age: 30,
+    age: 7,
     gender: '女性',
-    birthDate: '1996年2月8日',
+    birthDate: '2019年4月5日',
+    notes: '小学校2年生',
     homeAddress: '東京都千代田区丸の内1-1-1',
-    photoUrl: 'https://i.pravatar.cc/150?img=32',
+    photoUrl: memberPhotoUri(require('@/assets/images/members/imouto.png')),
     location: {
       address: '東京都目黒区中目黒',
       latitude: 35.6443,
@@ -126,6 +139,32 @@ export const mockMembers: Member[] = [
       { time: '9:39', riskLevel: 'safeLight' },
     ],
     lastUpdated: '9:39',
+    isResting: false,
+  },
+  {
+    id: 'member-5',
+    name: 'おばあちゃん',
+    age: 63,
+    gender: '女性',
+    birthDate: '1962年1月30日',
+    homeAddress: '東京都千代田区丸の内1-1-1',
+    photoUrl: memberPhotoUri(require('@/assets/images/members/obaachan.png')),
+    location: {
+      address: '東京都港区六本木',
+      latitude: 35.6627,
+      longitude: 139.7314,
+    },
+    environment: { temperature: 28.5, humidity: 58, wbgt: 25.2, windSpeed: 2.3 },
+    riskLevel: 'caution',
+    riskHistory: [
+      { time: '3:41', riskLevel: 'safe' },
+      { time: '4:41', riskLevel: 'safe' },
+      { time: '5:41', riskLevel: 'caution' },
+      { time: '6:41', riskLevel: 'caution' },
+      { time: '7:41', riskLevel: 'caution' },
+      { time: '9:38', riskLevel: 'caution' },
+    ],
+    lastUpdated: '9:38',
     isResting: false,
   },
 ];

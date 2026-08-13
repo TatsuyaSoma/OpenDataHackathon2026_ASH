@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { Filter, MoreVertical, Calendar } from 'lucide-react-native';
 import { Member, NotificationItem, RiskLevel } from '../types';
 import { RISK_CONFIG } from '../constants/riskConfig';
 import { colors, spacing, radius } from '../constants/theme';
+import { showAlert } from '../utils/crossPlatformAlert';
 import { mockNotifications } from '../data/mockData';
 import { useMembers } from '../context/MembersContext';
 import { NotificationCard } from '../components/NotificationCard';
@@ -111,10 +111,10 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
   }, [filtered]);
 
   const handleCheckIn = (member: Member) => {
-    Alert.alert('送信しました', `${member.name}に「大丈夫？」を送りました。`);
+    showAlert('送信しました', `${member.name}に「大丈夫？」を送りました。`);
   };
   const handleImFine = (member: Member) => {
-    Alert.alert('送信しました', `${member.name}に「元気！」を送りました。`);
+    showAlert('送信しました', `${member.name}に「元気！」を送りました。`);
   };
 
   return (
@@ -127,7 +127,7 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
         </TouchableOpacity>
         <Text style={styles.headerTitle}>通知履歴</Text>
         <TouchableOpacity
-          onPress={() => Alert.alert('メニュー', 'メニューは準備中です。')}
+          onPress={() => showAlert('メニュー', 'メニューは準備中です。')}
           hitSlop={8}>
           <MoreVertical size={22} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -152,7 +152,7 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
         <TouchableOpacity
           style={styles.periodChip}
           activeOpacity={0.7}
-          onPress={() => Alert.alert('表示期間', '通知履歴の表示期間は過去1か月間固定です。')}>
+          onPress={() => showAlert('表示期間', '通知履歴の表示期間は過去1か月間固定です。')}>
           <Calendar size={14} color={colors.textSecondary} />
           <Text style={styles.periodChipText}>期間：過去1か月</Text>
         </TouchableOpacity>

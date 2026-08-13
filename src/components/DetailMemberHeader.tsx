@@ -49,7 +49,7 @@ export const DetailMemberHeader: React.FC<Props> = ({ member }) => {
 
       <View style={styles.rightColumn}>
         <RiskBadge riskLevel={member.riskLevel} />
-        <RiskGauge riskLevel={member.riskLevel} size={64} strokeWidth={7} />
+        <RiskGauge riskLevel={member.riskLevel} score={member.riskScore} size={64} strokeWidth={7} />
       </View>
     </View>
   );

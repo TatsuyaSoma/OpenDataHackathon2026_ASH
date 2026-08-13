@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { Bell, ChevronRight, MapPin, MessageCircleQuestion, Smile, User } from 'lucide-react-native';
+import { Bell, ChevronRight, Lightbulb, MapPin, MessageCircleQuestion, Smile, User } from 'lucide-react-native';
 import { Member, NotificationItem } from '../types';
 import { RISK_CONFIG, isHighRisk } from '../constants/riskConfig';
 import { colors, spacing, radius } from '../constants/theme';
@@ -15,8 +15,8 @@ interface Props {
 
 /**
  * 通知履歴の1件分のカード。
- * 危険度が「やや危険」以上の場合のみ「大丈夫？」ボタンを表示し、
- * 「元気！」は常に表示する（安全なメンバーに安否確認は不要なため）。
+ * 「大丈夫？」は自分以外のメンバーにのみ表示（危険度が「やや危険」以上の場合のみ）。
+ * 「元気！」は自分自身の通知にのみ表示する（他人の代わりに元気アピールはできないため）。
  */
 export const NotificationCard: React.FC<Props> = ({
   notification,
@@ -28,7 +28,11 @@ export const NotificationCard: React.FC<Props> = ({
   const [imageFailed, setImageFailed] = useState(false);
   const showFallbackAvatar = !member.photoUrl || imageFailed;
   const config = RISK_CONFIG[notification.riskLevel];
-  const showCheckIn = isHighRisk(notification.riskLevel) || notification.riskLevel === 'warning';
+  const showCheckIn =
+    !member.isSelf && (isHighRisk(notification.riskLevel) || notification.riskLevel === 'warning');
+  const showImFine = !!member.isSelf;
+  // 安全レベルでは行動提案の内容が薄いため、注意以上のときだけ表示する
+  const showAdvice = config.order >= RISK_CONFIG.caution.order;
 
   return (
     <TouchableOpacity
@@ -69,29 +73,41 @@ export const NotificationCard: React.FC<Props> = ({
               {notification.location}
             </Text>
           </View>
+          {showAdvice && (
+            <View style={styles.adviceRow}>
+              <Lightbulb size={12} color={config.color} />
+              <Text style={styles.adviceText} numberOfLines={2}>
+                {config.advice}
+              </Text>
+            </View>
+          )}
         </View>
 
         <ChevronRight size={18} color={colors.textSecondary} />
       </View>
 
-      <View style={styles.actionsRow}>
-        {showCheckIn && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.checkInButton]}
-            activeOpacity={0.7}
-            onPress={() => onPressCheckIn?.(member)}>
-            <MessageCircleQuestion size={16} color={colors.primary} />
-            <Text style={[styles.actionText, { color: colors.primary }]}>大丈夫？</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[styles.actionButton, styles.imFineButton]}
-          activeOpacity={0.7}
-          onPress={() => onPressImFine?.(member)}>
-          <Smile size={16} color={colors.successText} />
-          <Text style={[styles.actionText, { color: colors.successText }]}>元気！</Text>
-        </TouchableOpacity>
-      </View>
+      {(showCheckIn || showImFine) && (
+        <View style={styles.actionsRow}>
+          {showCheckIn && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.checkInButton]}
+              activeOpacity={0.7}
+              onPress={() => onPressCheckIn?.(member)}>
+              <MessageCircleQuestion size={16} color={colors.primary} />
+              <Text style={[styles.actionText, { color: colors.primary }]}>大丈夫？</Text>
+            </TouchableOpacity>
+          )}
+          {showImFine && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.imFineButton]}
+              activeOpacity={0.7}
+              onPress={() => onPressImFine?.(member)}>
+              <Smile size={16} color={colors.successText} />
+              <Text style={[styles.actionText, { color: colors.successText }]}>元気！</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -167,6 +183,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 4,
     flexShrink: 1,
+  },
+  adviceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 4,
+  },
+  adviceText: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.textPrimary,
+    marginLeft: 4,
+    lineHeight: 15,
   },
   actionsRow: {
     flexDirection: 'row',

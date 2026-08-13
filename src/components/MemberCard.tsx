@@ -66,7 +66,7 @@ export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron }) =>
 
       <View style={styles.rightColumn}>
         <RiskBadge riskLevel={member.riskLevel} />
-        <RiskGauge riskLevel={member.riskLevel} />
+        <RiskGauge riskLevel={member.riskLevel} score={member.riskScore} />
       </View>
 
       {showChevron && (

@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { ArrowLeft, History, MoreVertical, RefreshCcw } from 'lucide-react-native';
 import { Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
 import { DeviceLocationStatus } from '../hooks/use-device-location';
+import { showAlert } from '../utils/crossPlatformAlert';
 import { DetailMemberHeader } from '../components/DetailMemberHeader';
 import { RestStatusBanner } from '../components/RestStatusBanner';
 import { RiskLevelPanel } from '../components/RiskLevelPanel';
@@ -56,11 +56,11 @@ export const CardDetailScreen: React.FC<Props> = ({
   };
 
   const handleCheckIn = () => {
-    Alert.alert('送信しました', `${member.name}に「大丈夫？」を送りました。`);
+    showAlert('送信しました', `${member.name}に「大丈夫？」を送りました。`);
   };
 
   const handleImFine = () => {
-    Alert.alert('送信しました', `${member.name}に「元気！」を送りました。`);
+    showAlert('送信しました', `${member.name}に「元気！」を送りました。`);
   };
 
   return (
@@ -120,7 +120,7 @@ export const CardDetailScreen: React.FC<Props> = ({
         )}
       </ScrollView>
 
-      <QuickReplyBar onPressCheckIn={handleCheckIn} onPressImFine={handleImFine} />
+      <QuickReplyBar isSelf={member.isSelf} onPressCheckIn={handleCheckIn} onPressImFine={handleImFine} />
     </SafeAreaView>
   );
 };

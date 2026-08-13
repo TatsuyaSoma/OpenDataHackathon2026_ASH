@@ -7,20 +7,17 @@ import { useMembers } from '../context/MembersContext';
 import { AlertBanner } from '../components/AlertBanner';
 import { MemberCard } from '../components/MemberCard';
 import { RestModeBar } from '../components/RestModeBar';
+import { RestStatusBanner } from '../components/RestStatusBanner';
 
 interface Props {
   // カード詳細画面への遷移をここで受け取る（react-navigation導入後は navigation.navigate に置き換え）
   onOpenMemberDetail?: (member: Member) => void;
   onOpenNotifications?: () => void;
-  onOpenRestModeSetting?: () => void;
 }
 
-export const HomeScreen: React.FC<Props> = ({
-  onOpenMemberDetail,
-  onOpenNotifications,
-  onOpenRestModeSetting,
-}) => {
-  const { members } = useMembers();
+export const HomeScreen: React.FC<Props> = ({ onOpenMemberDetail, onOpenNotifications }) => {
+  const { members, toggleResting } = useMembers();
+  const selfMember = members.find((m) => m.isSelf);
 
   // お休み中のメンバーは危険者数のカウントから除外する
   const dangerCount = useMemo(
@@ -38,6 +35,7 @@ export const HomeScreen: React.FC<Props> = ({
       </View>
 
       <FlatList
+        style={styles.list}
         data={members}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
@@ -49,10 +47,20 @@ export const HomeScreen: React.FC<Props> = ({
         renderItem={({ item }) => (
           <MemberCard member={item} onPress={(m) => onOpenMemberDetail?.(m)} />
         )}
-        ListFooterComponent={
-          <RestModeBar onPressSetting={() => onOpenRestModeSetting?.()} />
-        }
       />
+
+      {selfMember && (
+        <View style={styles.restModeBarWrapper}>
+          {selfMember.isResting ? (
+            <RestStatusBanner
+              restStartedAt={selfMember.restStartedAt}
+              onPressRelease={() => toggleResting(selfMember.id)}
+            />
+          ) : (
+            <RestModeBar onPressStart={() => toggleResting(selfMember.id)} />
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -71,8 +79,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
+  list: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  restModeBarWrapper: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
   },
 });

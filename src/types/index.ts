@@ -69,8 +69,10 @@ export interface Member {
   location: LocationInfo;
   environment: EnvironmentInfo;
   riskLevel: RiskLevel;
+  riskScore?: number; // 危険度スコア（0〜100）。MembersContextがenvironmentから都度算出して埋める
   riskHistory?: RiskHistoryPoint[]; // 直近の危険度推移（カード詳細画面のグラフ用）
   lastUpdated: string; // 表示用 "9:41" 形式
   isResting: boolean;  // お休みモード中かどうか
   restStartedAt?: string; // お休みモードを開始した時刻（表示用 "9:15" 形式）
+  restStartedLocation?: { latitude: number; longitude: number }; // お休みモードを開始した時点の位置（本人のみ。自動解除の判定に使用）
 }

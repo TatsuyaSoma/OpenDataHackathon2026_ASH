@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, StatusBar } from 'react-native';
 import { Member } from '../types';
 import { colors, spacing } from '../constants/theme';
+import { showAlert } from '../utils/crossPlatformAlert';
 import { useMembers } from '../context/MembersContext';
 import { SettingsSubTabBar, SettingsTabKey } from '../components/SettingsSubTabBar';
 import { MemberManagementSection } from '../components/MemberManagementSection';
@@ -25,7 +26,7 @@ export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember }) =
     if (onAddMember) {
       onAddMember();
     } else {
-      Alert.alert('メンバを追加', 'メンバー追加機能は準備中です。');
+      showAlert('メンバを追加', 'メンバー追加機能は準備中です。');
     }
   };
 
@@ -33,15 +34,15 @@ export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember }) =
     if (onEditMember) {
       onEditMember(member);
     } else {
-      Alert.alert('メンバを編集', `${member.name}さんの編集画面は準備中です。`);
+      showAlert('メンバを編集', `${member.name}の編集画面は準備中です。`);
     }
   };
 
   const handleReorderMembers = () =>
-    Alert.alert('並び順を変更', 'メンバーの並び替え機能は準備中です。');
+    showAlert('並び順を変更', 'メンバーの並び替え機能は準備中です。');
 
   const handleBulkDelete = () => {
-    Alert.alert(
+    showAlert(
       '見守りメンバを一括削除',
       'すべての見守りメンバを削除します。よろしいですか？',
       [
