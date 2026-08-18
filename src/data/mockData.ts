@@ -1,6 +1,5 @@
 import { Asset } from 'expo-asset';
 import { MapSpot, Member, NotificationItem } from '../types';
-import { unprojectFromMap } from '../utils/mapProjection';
 
 // 実在の人物の顔写真（肖像権の懸念がある）は避け、いらすとや風のイラスト画像
 // （assets/images/members/配下）をモック用の写真として使用する。
@@ -11,8 +10,9 @@ const memberPhotoUri = (asset: number) => Asset.fromModule(asset).uri;
 
 export const mockMembers: Member[] = [
   {
-    // この端末を使っている本人（母親）。locationはアプリ起動時にexpo-locationで取得した
-    // 実際の現在地に自動更新されます（許可されるまでは仮の値）。
+    // この端末を使っている本人（母親）。妹と一緒に東京駅前にいる。
+    // モックの整合性を保つため、実際の現在地取得は行わず固定位置のまま
+    // （気温・湿度はこの位置に対応する気象庁アメダスの実データで自動更新されます）。
     id: 'member-self',
     name: 'お母さん',
     age: 37,
@@ -22,12 +22,15 @@ export const mockMembers: Member[] = [
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/okaasan.png')),
     location: {
-      address: '位置情報を取得中…',
+      address: '東京都千代田区丸の内一丁目',
       latitude: 35.681236,
       longitude: 139.767125,
     },
-    environment: { temperature: 0, humidity: 0 },
-    riskLevel: 'safeLight',
+    // 実測データ取得前・失敗時も体力ゲージが動作するよう、危険度が高めに出る値を初期値としておく
+    // （取得できた場合はアメダスの実測値＋補正で上書きされる）
+    environment: { temperature: 33, humidity: 65 },
+    riskLevel: 'warning',
+    vitality: 100,
     lastUpdated: '—',
     isResting: false,
   },
@@ -39,10 +42,12 @@ export const mockMembers: Member[] = [
     birthDate: '1985年2月3日',
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/otousan.png')),
+    // お兄ちゃんと一緒に、コレド室町へ向かう途中で日本橋室町の路上にいる。
+    // 同じ場所にいるお兄ちゃんとは環境（気温・湿度等）を統一し、危険度の差は年齢補正のみで生じる。
     location: {
-      address: '東京都千代田区丸の内1丁目',
-      latitude: 35.6812,
-      longitude: 139.7671,
+      address: '東京都中央区日本橋室町三丁目',
+      latitude: 35.6832,
+      longitude: 139.7742,
     },
     environment: { temperature: 34.6, humidity: 68, wbgt: 31.2, windSpeed: 2.1 },
     riskLevel: 'danger',
@@ -53,12 +58,12 @@ export const mockMembers: Member[] = [
       { time: '5:41', riskLevel: 'warning' },
       { time: '6:41', riskLevel: 'danger' },
       { time: '7:41', riskLevel: 'danger' },
-      { time: '9:41', riskLevel: 'severe' },
+      { time: '9:41', riskLevel: 'danger' },
     ],
     lastUpdated: '9:41',
-    // 実際の環境は「危険」レベルだが、本人は冷房の効いたオフィスで休んでいる想定
-    isResting: true,
-    restStartedAt: '9:15',
+    vitality: 100,
+    // 路上を移動中のため、お休みモードではない
+    isResting: false,
   },
   {
     id: 'member-2',
@@ -69,10 +74,12 @@ export const mockMembers: Member[] = [
     homeAddress: '東京都千代田区丸の内1-1-1',
     medicalNotes: '高血圧（降圧剤服用中）',
     photoUrl: memberPhotoUri(require('@/assets/images/members/ojiichan.png')),
+    // おばあちゃんと一緒に京橋一丁目にいる。同じ場所にいるおばあちゃんとは環境を統一し、
+    // 危険度の差は年齢・持病による補正のみで生じる。
     location: {
-      address: '東京都新宿区西新宿',
-      latitude: 35.6896,
-      longitude: 139.6917,
+      address: '東京都中央区京橋一丁目',
+      latitude: 35.6768,
+      longitude: 139.7736,
     },
     environment: { temperature: 32.1, humidity: 60, wbgt: 28.4, windSpeed: 1.6 },
     riskLevel: 'warning',
@@ -85,6 +92,7 @@ export const mockMembers: Member[] = [
       { time: '9:40', riskLevel: 'warning' },
     ],
     lastUpdated: '9:40',
+    vitality: 100,
     isResting: false,
   },
   {
@@ -96,22 +104,25 @@ export const mockMembers: Member[] = [
     notes: '小学校5年生',
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/oniichan.png')),
+    // お父さんと一緒に、コレド室町へ向かう途中で日本橋室町の路上にいる。
+    // 同じ場所にいるお父さんとは環境（気温・湿度等）を統一し、危険度の差は年齢補正のみで生じる。
     location: {
-      address: '東京都渋谷区渋谷',
-      latitude: 35.658,
-      longitude: 139.7016,
+      address: '東京都中央区日本橋室町三丁目',
+      latitude: 35.6828,
+      longitude: 139.7748,
     },
-    environment: { temperature: 29.8, humidity: 55, wbgt: 26.1, windSpeed: 2.8 },
-    riskLevel: 'safe',
+    environment: { temperature: 34.6, humidity: 68, wbgt: 31.2, windSpeed: 2.1 },
+    riskLevel: 'danger',
     riskHistory: [
-      { time: '3:41', riskLevel: 'safeLight' },
-      { time: '4:41', riskLevel: 'safeLight' },
-      { time: '5:41', riskLevel: 'safe' },
-      { time: '6:41', riskLevel: 'safe' },
-      { time: '7:41', riskLevel: 'safe' },
-      { time: '9:40', riskLevel: 'safe' },
+      { time: '3:41', riskLevel: 'caution' },
+      { time: '4:41', riskLevel: 'warning' },
+      { time: '5:41', riskLevel: 'warning' },
+      { time: '6:41', riskLevel: 'danger' },
+      { time: '7:41', riskLevel: 'danger' },
+      { time: '9:40', riskLevel: 'danger' },
     ],
     lastUpdated: '9:40',
+    vitality: 100,
     isResting: false,
   },
   {
@@ -123,10 +134,11 @@ export const mockMembers: Member[] = [
     notes: '小学校2年生',
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/imouto.png')),
+    // お母さんと一緒に東京駅にいる
     location: {
-      address: '東京都目黒区中目黒',
-      latitude: 35.6443,
-      longitude: 139.6994,
+      address: '東京都千代田区丸の内一丁目',
+      latitude: 35.6806,
+      longitude: 139.7666,
     },
     environment: { temperature: 27.4, humidity: 50, wbgt: 23.9, windSpeed: 3.2 },
     riskLevel: 'safeLight',
@@ -139,6 +151,7 @@ export const mockMembers: Member[] = [
       { time: '9:39', riskLevel: 'safeLight' },
     ],
     lastUpdated: '9:39',
+    vitality: 100,
     isResting: false,
   },
   {
@@ -149,51 +162,42 @@ export const mockMembers: Member[] = [
     birthDate: '1962年1月30日',
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/obaachan.png')),
+    // おじいちゃんと一緒に京橋一丁目にいる。同じ場所にいるおじいちゃんとは環境を統一し、
+    // 危険度の差は年齢による補正のみで生じる。
     location: {
-      address: '東京都港区六本木',
-      latitude: 35.6627,
-      longitude: 139.7314,
+      address: '東京都中央区京橋一丁目',
+      latitude: 35.6763,
+      longitude: 139.7729,
     },
-    environment: { temperature: 28.5, humidity: 58, wbgt: 25.2, windSpeed: 2.3 },
-    riskLevel: 'caution',
+    environment: { temperature: 32.1, humidity: 60, wbgt: 28.4, windSpeed: 1.6 },
+    riskLevel: 'warning',
     riskHistory: [
       { time: '3:41', riskLevel: 'safe' },
       { time: '4:41', riskLevel: 'safe' },
       { time: '5:41', riskLevel: 'caution' },
       { time: '6:41', riskLevel: 'caution' },
-      { time: '7:41', riskLevel: 'caution' },
-      { time: '9:38', riskLevel: 'caution' },
+      { time: '7:41', riskLevel: 'warning' },
+      { time: '9:38', riskLevel: 'warning' },
     ],
     lastUpdated: '9:38',
+    vitality: 100,
     isResting: false,
   },
 ];
 
-// マップ画面用スポットの仮レイアウト（0〜1の正規化座標で見た目のバランスを取って手配置したもの）。
-// 緯度経度に変換してMapSpot化する。コンビニ・自販機は起動時にOpenStreetMap(Overpass API)の実データへ
-// 差し替わるが、取得中・失敗時のフォールバックとしてもこの配列を使う。給水スポット・カフェは引き続きこのモックのみ。
-const MOCK_SPOT_LAYOUT: { id: string; type: MapSpot['type']; name: string; x: number; y: number }[] = [
-  { id: 'spot-1', type: 'convenience', name: 'コンビニ（新宿北口）', x: 0.28, y: 0.24 },
-  { id: 'spot-2', type: 'convenience', name: 'コンビニ（飯田橋）', x: 0.33, y: 0.16 },
-  { id: 'spot-3', type: 'convenience', name: 'コンビニ（丸の内）', x: 0.62, y: 0.36 },
-  { id: 'spot-4', type: 'convenience', name: 'コンビニ（渋谷）', x: 0.14, y: 0.58 },
-  { id: 'spot-5', type: 'convenience', name: 'コンビニ（品川）', x: 0.9, y: 0.62 },
-  { id: 'spot-6', type: 'vending', name: '自販機（新宿東口）', x: 0.41, y: 0.19 },
-  { id: 'spot-7', type: 'vending', name: '自販機（飯田橋駅前）', x: 0.87, y: 0.14 },
-  { id: 'spot-8', type: 'vending', name: '自販機（丸の内）', x: 0.38, y: 0.42 },
-  { id: 'spot-9', type: 'vending', name: '自販機（品川）', x: 0.66, y: 0.85 },
-  { id: 'spot-10', type: 'water', name: '給水スポット（飯田橋）', x: 0.66, y: 0.15 },
-  { id: 'spot-11', type: 'water', name: '給水スポット（新宿）', x: 0.2, y: 0.36 },
-  { id: 'spot-12', type: 'water', name: '給水スポット（丸の内）', x: 0.62, y: 0.51 },
-  { id: 'spot-13', type: 'water', name: '給水スポット（品川）', x: 0.29, y: 0.82 },
-  { id: 'spot-14', type: 'cafe', name: 'カフェ（新宿）', x: 0.29, y: 0.47 },
-  { id: 'spot-15', type: 'cafe', name: 'カフェ（飯田橋）', x: 0.89, y: 0.31 },
+// マップ画面用スポットの仮レイアウト（東京駅・日本橋・京橋・銀座付近に手配置したもの、緯度経度で直接指定）。
+// コンビニ・自販機は起動時にOpenStreetMap(Overpass API)の実データへ差し替わるが、
+// 取得中・失敗時のフォールバックとしてもこの配列を使う。給水スポット・カフェは引き続きこのモックのみ。
+export const mockMapSpots: MapSpot[] = [
+  { id: 'spot-1', type: 'convenience', name: 'コンビニ（東京駅八重洲口）', latitude: 35.6798, longitude: 139.7693 },
+  { id: 'spot-2', type: 'convenience', name: 'コンビニ（日本橋室町）', latitude: 35.6858, longitude: 139.7735 },
+  { id: 'spot-3', type: 'vending', name: '自販機（丸の内仲通り）', latitude: 35.682, longitude: 139.766 },
+  { id: 'spot-4', type: 'vending', name: '自販機（京橋）', latitude: 35.6772, longitude: 139.7735 },
+  { id: 'spot-5', type: 'water', name: '給水スポット（東京駅前）', latitude: 35.6815, longitude: 139.7675 },
+  { id: 'spot-6', type: 'water', name: '給水スポット（日本橋）', latitude: 35.684, longitude: 139.7748 },
+  { id: 'spot-7', type: 'cafe', name: 'カフェ（丸の内）', latitude: 35.6825, longitude: 139.7685 },
+  { id: 'spot-8', type: 'cafe', name: 'カフェ（銀座一丁目）', latitude: 35.6722, longitude: 139.766 },
 ];
-
-export const mockMapSpots: MapSpot[] = MOCK_SPOT_LAYOUT.map(({ x, y, ...spot }) => ({
-  ...spot,
-  ...unprojectFromMap(x, y),
-}));
 
 // 通知履歴のモックデータ
 export const mockNotifications: NotificationItem[] = [
@@ -202,7 +206,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-1',
     riskLevel: 'danger',
     changed: true,
-    location: '東京都千代田区丸の内1丁目',
+    location: '東京都中央区日本橋室町',
     time: '9:41',
     dateLabel: '今日',
     isRead: false,
@@ -212,7 +216,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-2',
     riskLevel: 'warning',
     changed: true,
-    location: '東京都新宿区西新宿',
+    location: '東京都中央区京橋一丁目',
     time: '8:15',
     dateLabel: '今日',
     isRead: false,
@@ -222,7 +226,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-3',
     riskLevel: 'safe',
     changed: false,
-    location: '東京都渋谷区渋谷',
+    location: '東京都中央区日本橋室町',
     time: '7:50',
     dateLabel: '今日',
     isRead: true,
@@ -232,7 +236,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-4',
     riskLevel: 'safeLight',
     changed: false,
-    location: '東京都目黒区中目黒',
+    location: '東京都千代田区丸の内一丁目',
     time: '7:20',
     dateLabel: '今日',
     isRead: true,
@@ -242,7 +246,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-1',
     riskLevel: 'warning',
     changed: true,
-    location: '東京都千代田区丸の内1丁目',
+    location: '東京都中央区日本橋室町',
     time: '18:30',
     dateLabel: '昨日',
     isRead: true,
@@ -252,7 +256,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-4',
     riskLevel: 'safeLight',
     changed: false,
-    location: '東京都目黒区中目黒',
+    location: '東京都千代田区丸の内一丁目',
     time: '18:00',
     dateLabel: '昨日',
     isRead: true,

@@ -19,13 +19,18 @@ export const RiskBadge: React.FC<Props> = ({ riskLevel }) => {
 
 const styles = StyleSheet.create({
   badge: {
+    // ラベルの文字数（「安全」〜「非常に危険」）によって幅が変わると、MemberCard/DetailMemberHeaderの
+    // 縦積みレイアウト内でバッジの中心位置がリスクレベルごとにずれて見えるため、
+    // 最も長いラベル（「非常に危険」）でも収まる幅をminWidthで固定し、常に同じ幅で中央揃えする。
+    minWidth: 100,
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.full,
-    alignSelf: 'flex-end',
   },
   text: {
     fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });

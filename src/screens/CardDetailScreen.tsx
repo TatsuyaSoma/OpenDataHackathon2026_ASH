@@ -8,10 +8,9 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { ArrowLeft, History, MoreVertical, RefreshCcw } from 'lucide-react-native';
+import { ArrowLeft, History, MoreVertical } from 'lucide-react-native';
 import { Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
-import { DeviceLocationStatus } from '../hooks/use-device-location';
 import { showAlert } from '../utils/crossPlatformAlert';
 import { DetailMemberHeader } from '../components/DetailMemberHeader';
 import { RestStatusBanner } from '../components/RestStatusBanner';
@@ -21,31 +20,20 @@ import { BasicInfoCard } from '../components/BasicInfoCard';
 import { MapPreviewCard } from '../components/MapPreviewCard';
 import { QuickReplyBar } from '../components/QuickReplyBar';
 
-const LOCATION_STATUS_LABEL: Record<DeviceLocationStatus, string> = {
-  requesting: '現在地を取得中…',
-  granted: '現在地を取得しました',
-  denied: '位置情報の利用が許可されていません（端末の設定から許可してください）',
-  error: '現在地の取得に失敗しました',
-};
-
 interface Props {
   member: Member;
   historicalNotice?: string; // 通知履歴から遷移した場合など、過去時点のスナップショットであることを示す注記
-  locationStatus?: DeviceLocationStatus; // isSelfのメンバーのみ、実際の位置情報取得状況を表示する
   onBack?: () => void;
   onOpenMap?: (member: Member) => void;
   onOpenMenu?: (member: Member) => void;
-  onRefreshLocation?: () => void;
 }
 
 export const CardDetailScreen: React.FC<Props> = ({
   member,
   historicalNotice,
-  locationStatus,
   onBack,
   onOpenMap,
   onOpenMenu,
-  onRefreshLocation,
 }) => {
   // お休み解除をこの画面上で即座に反映できるよう、ローカルstateとして保持
   // （実際にはサーバー/位置情報サービスへの反映後、上位のstateも更新する想定）
@@ -105,19 +93,6 @@ export const CardDetailScreen: React.FC<Props> = ({
         />
 
         <MapPreviewCard location={member.location} onPressOpenMap={() => onOpenMap?.(member)} />
-
-        {onRefreshLocation && (
-          <TouchableOpacity
-            style={styles.locationRefreshRow}
-            activeOpacity={0.7}
-            onPress={onRefreshLocation}>
-            <RefreshCcw size={14} color={colors.primary} />
-            <Text style={styles.locationRefreshText}>
-              {locationStatus ? LOCATION_STATUS_LABEL[locationStatus] : '現在地を更新'}
-              {locationStatus !== 'requesting' && '（タップして更新）'}
-            </Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
 
       <QuickReplyBar isSelf={member.isSelf} onPressCheckIn={handleCheckIn} onPressImFine={handleImFine} />
@@ -145,18 +120,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-  },
-  locationRefreshRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  locationRefreshText: {
-    fontSize: 12,
-    color: colors.primary,
-    marginLeft: spacing.xs,
   },
   historicalBanner: {
     flexDirection: 'row',

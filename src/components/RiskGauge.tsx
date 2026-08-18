@@ -6,18 +6,30 @@ import { RISK_CONFIG, RISK_LEVEL_COUNT } from '../constants/riskConfig';
 import { colors } from '../constants/theme';
 
 interface Props {
-  riskLevel: RiskLevel;
-  score?: number; // 0〜100の危険度スコア。指定時はリングの塗りつぶし・中央の数値表示に反映する
+  riskLevel: RiskLevel; // リング（ゲージ）の色・塗りつぶし量のフォールバックに使う危険度レベル
+  score?: number; // 0〜100。指定時はリングの塗りつぶし量に使う
+  valueLabel?: number; // 中央に表示する数値。未指定の場合はscoreを表示する（ゲージの値と表示したい数値が異なる場合に指定する）
+  valueColor?: string; // 中央の数値の色。未指定の場合はriskLevelの色を使う（ゲージの色と数値の色を分けたい場合に指定する）
   size?: number;
   strokeWidth?: number;
+  hideValue?: boolean; // trueの場合、中央の数値テキストを表示しない（マップのアイコン用）
 }
 
 /**
- * メンバーの危険度を円形リングで表示するゲージ。
- * scoreが指定された場合はその値（0〜100）で塗りつぶし量と中央の数値を決め、
- * 未指定の場合はriskLevelのorder（1〜6）に応じた塗りつぶし量にフォールバックする。
+ * 円形リングのゲージ。リング自体はriskLevel（色）とscore（塗りつぶし量、0〜100）で決まり、
+ * 中央に表示する数値・色はvalueLabel/valueColorで別途指定できる
+ * （例：ゲージ自体は体力ゲージの残量、中央の数値は危険度スコア、というように意味を分離できる）。
+ * score未指定の場合はriskLevelのorder（1〜6）に応じた塗りつぶし量にフォールバックする。
  */
-export const RiskGauge: React.FC<Props> = ({ riskLevel, score, size = 56, strokeWidth = 6 }) => {
+export const RiskGauge: React.FC<Props> = ({
+  riskLevel,
+  score,
+  valueLabel,
+  valueColor,
+  size = 56,
+  strokeWidth = 6,
+  hideValue = false,
+}) => {
   const config = RISK_CONFIG[riskLevel];
   // order(1〜6) をそのまま /6 すると「ほぼ安全」でも16%表示されてしまいUX上不自然なため、
   // 最も安全な段階を0%起点にする（レビュー指摘反映）。
@@ -25,6 +37,8 @@ export const RiskGauge: React.FC<Props> = ({ riskLevel, score, size = 56, stroke
   const rawProgress =
     score !== undefined ? score / 100 : (config.order - 1) / (RISK_LEVEL_COUNT - 1); // 0〜1
   const progress = Math.max(rawProgress, 0.04);
+  const displayValue = valueLabel ?? score;
+  const displayColor = valueColor ?? config.color;
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -57,19 +71,19 @@ export const RiskGauge: React.FC<Props> = ({ riskLevel, score, size = 56, stroke
           transform={`rotate(-90 ${center} ${center})`}
         />
       </Svg>
-      {score !== undefined && (
+      {displayValue !== undefined && !hideValue && (
         <Text
           style={{
             width: size - strokeWidth * 2,
             fontSize: size * 0.46,
             fontWeight: '800',
-            color: config.color,
+            color: displayColor,
             textAlign: 'center',
           }}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.6}>
-          {score}
+          {displayValue}
         </Text>
       )}
     </View>

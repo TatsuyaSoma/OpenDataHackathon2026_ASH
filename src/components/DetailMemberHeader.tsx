@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { MapPin, User } from 'lucide-react-native';
 import { Member } from '../types';
+import { estimateVitalityLevel } from '../logic/vitalityGauge';
+import { RISK_CONFIG } from '../constants/riskConfig';
 import { colors, spacing, radius } from '../constants/theme';
 import { RiskBadge } from './RiskBadge';
 import { RiskGauge } from './RiskGauge';
@@ -49,7 +51,14 @@ export const DetailMemberHeader: React.FC<Props> = ({ member }) => {
 
       <View style={styles.rightColumn}>
         <RiskBadge riskLevel={member.riskLevel} />
-        <RiskGauge riskLevel={member.riskLevel} score={member.riskScore} size={64} strokeWidth={7} />
+        <RiskGauge
+          riskLevel={estimateVitalityLevel(member.vitality)}
+          score={member.vitality}
+          valueLabel={member.riskScore}
+          valueColor={RISK_CONFIG[member.riskLevel].color}
+          size={64}
+          strokeWidth={7}
+        />
       </View>
     </View>
   );
@@ -110,7 +119,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   rightColumn: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 64,
   },

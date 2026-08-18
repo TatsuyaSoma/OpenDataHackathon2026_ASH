@@ -1,12 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Member } from '../types';
 import { mockMembers } from '../data/mockData';
-import { DeviceLocationStatus, useDeviceLocation } from '../hooks/use-device-location';
 import { useNearbyWeather } from '../hooks/use-nearby-weather';
 import { estimateRiskLevel, estimateRiskScore } from '../logic/riskCalculation';
+import { applyVitalityTick } from '../logic/vitalityGauge';
 import { isHighRisk, RISK_CONFIG } from '../constants/riskConfig';
-import { haversineDistanceMeters } from '../utils/geo';
-import { requestNotificationPermission, sendDangerNotification } from '../services/localNotifications';
+import { useNotifications } from './NotificationsContext';
+import {
+  requestNotificationPermission,
+  sendDangerNotification,
+  sendVitalityReminderNotification,
+} from '../services/localNotifications';
 
 interface MembersContextValue {
   members: Member[];
@@ -16,14 +21,33 @@ interface MembersContextValue {
   removeMember: (id: string) => void;
   removeAllMembers: () => void;
   toggleResting: (id: string) => void;
-  selfLocationStatus: DeviceLocationStatus;
-  refreshSelfLocation: () => void;
 }
 
-const formatTimeLabel = (date: Date) => `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+// getHours()/getMinutes()は端末のシステムタイムゾーン依存（エミュレータ等でUTCになっている場合、
+// 実際の日本時間と9時間ずれて表示されてしまう）。端末設定に関わらず常に日本時間（JST）で
+// 表示するため、UTC時刻からJST（UTC+9固定、夏時間なし）へ手動で変換する。
+const JST_OFFSET_MINUTES = 9 * 60;
 
-// お休み開始地点からこの距離（メートル）以上動いたら、自動でお休みモードを解除する
-const REST_AUTO_RELEASE_DISTANCE_METERS = 300;
+const formatTimeLabel = (date: Date) => {
+  const jstTotalMinutes = (date.getUTCHours() * 60 + date.getUTCMinutes() + JST_OFFSET_MINUTES) % (24 * 60);
+  const hours = Math.floor(jstTotalMinutes / 60);
+  const minutes = jstTotalMinutes % 60;
+  return `${hours}:${String(minutes).padStart(2, '0')}`;
+};
+
+// 体力ゲージを再計算する間隔。実時間ではなくデモで動きが見える速さを優先している
+// （増減ペース自体はsrc/logic/vitalityGauge.tsのDECAY_RATE_PER_MINUTE等で調整する）
+const VITALITY_TICK_INTERVAL_MS = 5000;
+
+// 本人の気温に上乗せする補正値（℃）。アメダス実測値だけだと危険度が低めに出て
+// 体力ゲージが動かないことがあるため、屋外での体感に近づける形で高めに補正する。
+const SELF_RISK_BOOST_CELSIUS = 5;
+
+// メンバーの体力ゲージがこの値を下回るたびに、回復を促すリマインダー通知を送る（高い順）
+const VITALITY_REMINDER_THRESHOLDS = [70, 40];
+
+// メンバー一覧をローカル端末に永続化する際のAsyncStorageキー
+const MEMBERS_STORAGE_KEY = '@family-heatstroke-watch/members';
 
 const MembersContext = createContext<MembersContextValue | undefined>(undefined);
 
@@ -34,7 +58,30 @@ const MembersContext = createContext<MembersContextValue | undefined>(undefined)
  * データソースはモックのため、実装時はAPI連携のstate管理に置き換える想定。
  */
 export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { addNotification } = useNotifications();
   const [members, setMembers] = useState<Member[]>(mockMembers);
+  // 起動直後の読み込み完了前に、モックの初期値でストレージを上書きしてしまわないようにするためのフラグ
+  const hasHydratedRef = useRef(false);
+
+  // 起動時に、端末に永続化されたメンバー一覧があれば読み込む（無ければモックのまま）
+  useEffect(() => {
+    AsyncStorage.getItem(MEMBERS_STORAGE_KEY)
+      .then((json) => {
+        if (json) setMembers(JSON.parse(json));
+      })
+      .catch((error) => console.warn('メンバー情報の読み込みに失敗しました:', error))
+      .finally(() => {
+        hasHydratedRef.current = true;
+      });
+  }, []);
+
+  // メンバー一覧が変化するたびに端末へ永続化する
+  useEffect(() => {
+    if (!hasHydratedRef.current) return;
+    AsyncStorage.setItem(MEMBERS_STORAGE_KEY, JSON.stringify(members)).catch((error) =>
+      console.warn('メンバー情報の保存に失敗しました:', error)
+    );
+  }, [members]);
 
   // riskLevel/riskScoreは保存済みの値をそのまま信用せず、現在の気温・湿度から都度算出する
   // （算出ロジックはsrc/logic/riskCalculation.tsに集約しており、差し替えるとここにも自動で反映される）
@@ -69,8 +116,7 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setMembers([]);
   }, []);
 
-  // お休みモードのON/OFFを切り替える。ONにした瞬間の時刻・位置（本人のみ）を記録する。
-  // 記録した位置は、自動解除の判定（後述のuseEffect）に使う。
+  // お休みモードのON/OFFを切り替える。ONにした瞬間の時刻を記録する。
   const toggleResting = useCallback((id: string) => {
     setMembers((prev) =>
       prev.map((member) => {
@@ -81,75 +127,32 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...member,
           isResting: nextResting,
           restStartedAt: nextResting ? formatTimeLabel(now) : undefined,
-          restStartedLocation:
-            nextResting && member.isSelf
-              ? { latitude: member.location.latitude, longitude: member.location.longitude }
-              : undefined,
         };
       })
     );
   }, []);
 
-  // この端末を使っている本人（isSelf: true のメンバー）の位置情報を、実際の現在地で自動更新する
-  const deviceLocation = useDeviceLocation();
-
+  // 体力ゲージを一定間隔で再計算する。危険な状態が続くと減り、お休み中や安全な状態では回復する。
   useEffect(() => {
-    const { status, latitude, longitude, address, errorMessage } = deviceLocation;
-    if (status === 'requesting') return;
-
-    setMembers((prev) =>
-      prev.map((member) => {
-        if (!member.isSelf) return member;
-        if (status === 'granted' && latitude !== undefined && longitude !== undefined) {
-          // お休み中に、開始地点から一定距離以上動いたら自動でお休みモードを解除する
-          const movedAwayFromRestStart =
-            member.isResting &&
-            member.restStartedLocation !== undefined &&
-            haversineDistanceMeters(
-              member.restStartedLocation.latitude,
-              member.restStartedLocation.longitude,
-              latitude,
-              longitude
-            ) > REST_AUTO_RELEASE_DISTANCE_METERS;
-
+    const elapsedMinutes = VITALITY_TICK_INTERVAL_MS / 60000;
+    const intervalId = setInterval(() => {
+      setMembers((prev) =>
+        prev.map((member) => {
+          const currentRiskLevel = estimateRiskLevel({ ...member.environment, age: member.age });
           return {
             ...member,
-            location: {
-              address: address ?? member.location.address,
-              latitude,
-              longitude,
-            },
-            lastUpdated: formatTimeLabel(new Date()),
-            ...(movedAwayFromRestStart
-              ? { isResting: false, restStartedAt: undefined, restStartedLocation: undefined }
-              : {}),
+            vitality: applyVitalityTick(member.vitality, currentRiskLevel, member.isResting, elapsedMinutes),
           };
-        }
-        if (status === 'denied') {
-          return {
-            ...member,
-            location: { ...member.location, address: '位置情報の利用が許可されていません' },
-          };
-        }
-        if (status === 'error') {
-          return {
-            ...member,
-            location: { ...member.location, address: errorMessage ?? '現在地を取得できませんでした' },
-          };
-        }
-        return member;
-      })
-    );
-  }, [
-    deviceLocation.status,
-    deviceLocation.latitude,
-    deviceLocation.longitude,
-    deviceLocation.address,
-    deviceLocation.errorMessage,
-  ]);
+        })
+      );
+    }, VITALITY_TICK_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, []);
 
-  // 本人の実際の現在地に対応する気温・湿度を、気象庁アメダスの実データで自動更新する
-  const nearbyWeather = useNearbyWeather(deviceLocation.latitude, deviceLocation.longitude);
+  // 本人（isSelf: true のメンバー）の位置は、モックの整合性を保つため実際の現在地では上書きしない
+  // （固定のモック位置のまま）。気温・湿度だけは、そのモック位置に対応する気象庁アメダスの実データで更新する。
+  const selfLocation = members.find((member) => member.isSelf)?.location;
+  const nearbyWeather = useNearbyWeather(selfLocation?.latitude, selfLocation?.longitude);
 
   useEffect(() => {
     if (nearbyWeather.status !== 'success' || !nearbyWeather.weather) return;
@@ -158,11 +161,59 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setMembers((prev) =>
       prev.map((member) =>
         member.isSelf
-          ? { ...member, environment: { ...member.environment, temperature, humidity } }
+          ? {
+              ...member,
+              // アメダスの実測値は日陰基準で、屋外での体感より低めに出ることが多い。
+              // 本人の体力ゲージが時間経過でしっかり動く（減る）デモになるよう、気温に上乗せしておく。
+              environment: { ...member.environment, temperature: temperature + SELF_RISK_BOOST_CELSIUS, humidity },
+              lastUpdated: formatTimeLabel(new Date()),
+            }
           : member
       )
     );
   }, [nearbyWeather.status, nearbyWeather.weather]);
+
+  // 全メンバーの体力ゲージが一定のしきい値を下回るたびに、ローカル通知を送り通知履歴にも記録する
+  // （しきい値を跨ぐたびに1回だけ通知するので、ゲージが下がり続ける間は段階的に複数回届く）。
+  // 本人は水分補給・休憩を促すメッセージ、他メンバーは見守っている本人へ向けて声かけを促すメッセージにする。
+  const previousVitalityRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    derivedMembers.forEach((member) => {
+      const previousVitality = previousVitalityRef.current.get(member.id);
+      previousVitalityRef.current.set(member.id, member.vitality);
+      if (previousVitality === undefined) return; // 初回読み込み時は判定しない
+
+      const crossedThreshold = VITALITY_REMINDER_THRESHOLDS.find(
+        (threshold) => previousVitality > threshold && member.vitality <= threshold
+      );
+      if (crossedThreshold === undefined) return;
+
+      const isSevere = crossedThreshold < 50;
+      const message = member.isSelf
+        ? isSevere
+          ? '体力ゲージがかなり減っています。涼しい場所で休憩しましょう。'
+          : '体力ゲージが減ってきています。水分補給をしましょう。'
+        : isSevere
+          ? `${member.name}の体力ゲージが大きく減っています。休憩するよう声をかけてあげましょう。`
+          : `${member.name}の体力ゲージが減ってきています。水分補給を促してあげましょう。`;
+
+      requestNotificationPermission().then((granted) => {
+        if (granted) sendVitalityReminderNotification(message);
+      });
+
+      addNotification({
+        id: `vitality-${member.id}-${Date.now()}`,
+        memberId: member.id,
+        riskLevel: member.riskLevel,
+        changed: true,
+        location: member.location.address,
+        time: formatTimeLabel(new Date()),
+        dateLabel: '今日',
+        isRead: false,
+      });
+    });
+  }, [derivedMembers, addNotification]);
 
   // 本人の危険度が「危険」以上になった瞬間に、端末のローカル通知で知らせる
   // （サーバーを介さないため、他メンバーの端末には届かない）
@@ -190,20 +241,8 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
       removeMember,
       removeAllMembers,
       toggleResting,
-      selfLocationStatus: deviceLocation.status,
-      refreshSelfLocation: deviceLocation.refresh,
     }),
-    [
-      derivedMembers,
-      getMemberById,
-      addMember,
-      updateMember,
-      removeMember,
-      removeAllMembers,
-      toggleResting,
-      deviceLocation.status,
-      deviceLocation.refresh,
-    ]
+    [derivedMembers, getMemberById, addMember, updateMember, removeMember, removeAllMembers, toggleResting]
   );
 
   return <MembersContext.Provider value={value}>{children}</MembersContext.Provider>;

@@ -36,7 +36,7 @@ export const MapDisplayControls: React.FC<Props> = ({
   waterEnabled,
   onToggleWater,
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   if (collapsed) {
     return (
@@ -56,7 +56,7 @@ export const MapDisplayControls: React.FC<Props> = ({
         <ChevronUp size={16} color={colors.textSecondary} />
       </TouchableOpacity>
 
-      <ToggleRow label="ヒートマップ" value={heatmapEnabled} onValueChange={onToggleHeatmap} />
+      <ToggleRow label="WBGT" value={heatmapEnabled} onValueChange={onToggleHeatmap} />
       <ToggleRow label="メンバー" value={membersEnabled} onValueChange={onToggleMembers} />
       <ToggleRow label="コンビニ" value={convenienceEnabled} onValueChange={onToggleConvenience} />
       <ToggleRow label="自販機" value={vendingEnabled} onValueChange={onToggleVending} />

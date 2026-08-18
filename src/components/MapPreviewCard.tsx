@@ -12,9 +12,10 @@ interface Props {
 
 /**
  * 現在地のプレビューカード。
- * モックのため実際の地図タイルは使用せず、道路風の線と地名ラベルで
- * 「地図らしさ」を演出したプレースホルダーを表示している。
- * 実装時は react-native-maps 等の地図コンポーネントに置き換える想定。
+ * 背景はモックとして実際のGoogleマップのスクリーンショット画像
+ * （MapBackgroundLayer、東京駅・丸の内付近）を敷いている。ピンの位置は固定表示で、
+ * 実際の緯度経度には連動していない。実際の地図タイル連携は expo-maps 等への置き換えが必要
+ * （詳細は google-maps-integration.md）。
  */
 export const MapPreviewCard: React.FC<Props> = ({ location, onPressOpenMap }) => {
   return (

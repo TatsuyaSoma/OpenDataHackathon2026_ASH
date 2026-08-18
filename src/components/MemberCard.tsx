@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { ChevronRight, MapPin, Moon, User } from 'lucide-react-native';
 import { Member } from '../types';
-import { isHighRisk } from '../constants/riskConfig';
+import { isHighRisk, RISK_CONFIG } from '../constants/riskConfig';
+import { estimateVitalityLevel } from '../logic/vitalityGauge';
 import { colors, spacing, radius } from '../constants/theme';
 import { RiskBadge } from './RiskBadge';
 import { RiskGauge } from './RiskGauge';
@@ -66,7 +67,12 @@ export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron }) =>
 
       <View style={styles.rightColumn}>
         <RiskBadge riskLevel={member.riskLevel} />
-        <RiskGauge riskLevel={member.riskLevel} score={member.riskScore} />
+        <RiskGauge
+          riskLevel={estimateVitalityLevel(member.vitality)}
+          score={member.vitality}
+          valueLabel={member.riskScore}
+          valueColor={RISK_CONFIG[member.riskLevel].color}
+        />
       </View>
 
       {showChevron && (
@@ -155,7 +161,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   rightColumn: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 56,
   },

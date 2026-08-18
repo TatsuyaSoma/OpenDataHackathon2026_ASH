@@ -19,7 +19,6 @@ export const RestStatusBanner: React.FC<Props> = ({ restStartedAt, onPressReleas
       <BedDouble size={22} color={colors.successText} style={styles.icon} />
       <View style={styles.textColumn}>
         <Text style={styles.title}>お休み中　（冷房が効いた部屋にいるよ）</Text>
-        <Text style={styles.subtitle}>位置情報で動いたら自動で解除します</Text>
         {restStartedAt && <Text style={styles.subtitle}>開始時刻：　{restStartedAt}</Text>}
       </View>
       <TouchableOpacity style={styles.button} onPress={onPressRelease} activeOpacity={0.7}>

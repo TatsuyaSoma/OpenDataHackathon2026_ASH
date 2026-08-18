@@ -2,3 +2,5 @@
 export const requestNotificationPermission = async (): Promise<boolean> => false;
 
 export const sendDangerNotification = async (_memberName: string, _riskLabel: string): Promise<void> => {};
+
+export const sendVitalityReminderNotification = async (_message: string): Promise<void> => {};

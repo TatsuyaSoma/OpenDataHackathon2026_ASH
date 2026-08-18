@@ -1,5 +1,7 @@
-// マップ表示範囲の緯度経度境界（実地図タイル導入までの仮の投影範囲。東京都心付近を仮定）
-export const MAP_BOUNDS = { latMin: 35.615, latMax: 35.71, lngMin: 139.66, lngMax: 139.8 };
+// マップ表示範囲の緯度経度境界。背景に敷いているモック画像
+// （assets/images/map/tokyo-marunouchi-mock.png、東京駅〜日本橋〜京橋〜銀座付近のスクリーンショット）の
+// 表示範囲に合わせたおおよその値（ランドマークの位置から逆算した概算であり、厳密な測量値ではない）。
+export const MAP_BOUNDS = { latMin: 35.67, latMax: 35.691, lngMin: 139.758, lngMax: 139.789 };
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 

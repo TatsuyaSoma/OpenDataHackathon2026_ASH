@@ -13,8 +13,8 @@ import { Member, NotificationItem, RiskLevel } from '../types';
 import { RISK_CONFIG } from '../constants/riskConfig';
 import { colors, spacing, radius } from '../constants/theme';
 import { showAlert } from '../utils/crossPlatformAlert';
-import { mockNotifications } from '../data/mockData';
 import { useMembers } from '../context/MembersContext';
+import { useNotifications } from '../context/NotificationsContext';
 import { NotificationCard } from '../components/NotificationCard';
 import {
   NotificationFilterDropdown,
@@ -48,6 +48,7 @@ const RISK_OPTIONS: FilterOption[] = [
  */
 export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
   const { members } = useMembers();
+  const { notifications } = useNotifications();
   const MEMBER_OPTIONS: FilterOption[] = useMemo(
     () => [
       { value: 'all', label: 'すべて' },
@@ -88,14 +89,14 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
   };
 
   const filtered = useMemo(() => {
-    return mockNotifications.filter((notification) => {
+    return notifications.filter((notification) => {
       if (readFilter === 'unread' && notification.isRead) return false;
       if (readFilter === 'read' && !notification.isRead) return false;
       if (riskFilter !== 'all' && notification.riskLevel !== riskFilter) return false;
       if (memberFilter !== 'all' && notification.memberId !== memberFilter) return false;
       return true;
     });
-  }, [readFilter, riskFilter, memberFilter]);
+  }, [notifications, readFilter, riskFilter, memberFilter]);
 
   const groups = useMemo(() => {
     const result: { label: string; items: NotificationItem[] }[] = [];

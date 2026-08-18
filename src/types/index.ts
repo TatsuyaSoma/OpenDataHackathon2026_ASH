@@ -60,7 +60,7 @@ export interface Member {
   name: string;
   age: number;
   gender: Gender;
-  isSelf?: boolean;          // trueの場合、この端末を使っている本人。locationはexpo-locationで取得した実際の現在地に自動更新される
+  isSelf?: boolean;          // trueの場合、この端末を使っている本人。locationは固定のモック位置（実際の現在地取得は停止中）
   birthDate?: string;        // 生年月日（表示用 "1957年3月15日" 形式）
   homeAddress?: string;       // 自宅住所（現在地とは別。カード詳細の基本情報に表示）
   medicalNotes?: string;       // 持病・注意事項
@@ -74,5 +74,5 @@ export interface Member {
   lastUpdated: string; // 表示用 "9:41" 形式
   isResting: boolean;  // お休みモード中かどうか
   restStartedAt?: string; // お休みモードを開始した時刻（表示用 "9:15" 形式）
-  restStartedLocation?: { latitude: number; longitude: number }; // お休みモードを開始した時点の位置（本人のみ。自動解除の判定に使用）
+  vitality: number; // 体力ゲージ（0〜100）。危険な状態が続くと減り、休憩や安全な状態で回復する（ホーム・マップの円形ゲージに表示）
 }

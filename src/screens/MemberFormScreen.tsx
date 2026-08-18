@@ -158,6 +158,7 @@ export const MemberFormScreen: React.FC<Props> = ({ initialMember, onBack, onSub
           },
           environment: { temperature: 0, humidity: 0 },
           riskLevel: 'safeLight',
+          vitality: 100,
           lastUpdated: '—',
           isResting: false,
         };
