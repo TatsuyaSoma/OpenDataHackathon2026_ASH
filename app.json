@@ -23,7 +23,12 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.anonymous.OpenDataHackathon2026_ASH_APP"
+      "package": "com.anonymous.OpenDataHackathon2026_ASH_APP",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBJjKdkLS0neyTjFAIQKEmQjQa-FSVflE0"
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -52,7 +57,8 @@
           "locationWhenInUsePermission": "あなたの現在地を家族に共有するために、位置情報へのアクセスを許可してください。"
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-maps"
     ],
     "experiments": {
       "typedRoutes": true,

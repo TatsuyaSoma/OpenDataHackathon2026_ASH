@@ -16,6 +16,8 @@ interface Props {
   onToggleCafe: (value: boolean) => void;
   waterEnabled: boolean;
   onToggleWater: (value: boolean) => void;
+  disasterWaterEnabled: boolean;
+  onToggleDisasterWater: (value: boolean) => void;
 }
 
 /**
@@ -35,6 +37,8 @@ export const MapDisplayControls: React.FC<Props> = ({
   onToggleCafe,
   waterEnabled,
   onToggleWater,
+  disasterWaterEnabled,
+  onToggleDisasterWater,
 }) => {
   const [collapsed, setCollapsed] = useState(true);
 
@@ -62,6 +66,7 @@ export const MapDisplayControls: React.FC<Props> = ({
       <ToggleRow label="自販機" value={vendingEnabled} onValueChange={onToggleVending} />
       <ToggleRow label="カフェ" value={cafeEnabled} onValueChange={onToggleCafe} />
       <ToggleRow label="給水スポット" value={waterEnabled} onValueChange={onToggleWater} />
+      <ToggleRow label="災害時給水" value={disasterWaterEnabled} onValueChange={onToggleDisasterWater} />
     </View>
   );
 };

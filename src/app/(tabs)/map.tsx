@@ -7,7 +7,6 @@ export default function MapRoute() {
 
   return (
     <MapScreen
-      onBack={() => router.back()}
       onOpenMemberDetail={(member: Member) =>
         router.push({ pathname: '/member/[id]', params: { id: member.id } })
       }

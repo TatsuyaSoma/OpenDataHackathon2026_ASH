@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.9",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "encoding-japanese": "^2.2.0",
     "expo": "~57.0.11",
     "expo-constants": "~57.0.9",
     "expo-dev-client": "~57.0.13",
@@ -15,6 +16,7 @@
     "expo-image-picker": "~57.0.9",
     "expo-linking": "~57.0.5",
     "expo-location": "~57.0.9",
+    "expo-maps": "~57.0.1",
     "expo-notifications": "~57.0.10",
     "expo-router": "~57.0.11",
     "expo-splash-screen": "~57.0.5",
@@ -35,6 +37,7 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@types/encoding-japanese": "^2.2.1",
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MapSpot } from '../types';
-import { fetchConvenienceAndVendingSpots } from '../services/overpassSpots';
+import { fetchOsmSpots } from '../services/overpassSpots';
 
 export type NearbySpotsStatus = 'loading' | 'success' | 'error';
 
@@ -17,13 +17,13 @@ const spotsCache = new Map<string, Promise<MapSpot[]>>();
 const getCachedSpots = (bounds: Bounds): Promise<MapSpot[]> => {
   const key = JSON.stringify(bounds);
   if (!spotsCache.has(key)) {
-    spotsCache.set(key, fetchConvenienceAndVendingSpots(bounds));
+    spotsCache.set(key, fetchOsmSpots(bounds));
   }
   return spotsCache.get(key)!;
 };
 
 /**
- * 指定範囲内のコンビニ・自販機の実データ（OpenStreetMap）を取得するフック。
+ * 指定範囲内のコンビニ・自販機・カフェの実データ（OpenStreetMap）を取得するフック。
  * 取得中・失敗時は呼び出し側でモックデータへのフォールバックを行う想定。
  */
 export const useNearbySpots = (bounds: Bounds) => {

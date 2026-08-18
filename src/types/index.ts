@@ -32,8 +32,8 @@ export interface RiskHistoryPoint {
   riskLevel: RiskLevel;
 }
 
-// マップ画面に表示するスポット（コンビニ・自販機・給水スポット・カフェ）
-export type MapSpotType = 'convenience' | 'vending' | 'water' | 'cafe';
+// マップ画面に表示するスポット（コンビニ・自販機・給水スポット・災害時給水ステーション・カフェ）
+export type MapSpotType = 'convenience' | 'vending' | 'water' | 'disasterWater' | 'cafe';
 
 export interface MapSpot {
   id: string;

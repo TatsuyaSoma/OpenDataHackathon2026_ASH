@@ -186,8 +186,8 @@ export const mockMembers: Member[] = [
 ];
 
 // マップ画面用スポットの仮レイアウト（東京駅・日本橋・京橋・銀座付近に手配置したもの、緯度経度で直接指定）。
-// コンビニ・自販機は起動時にOpenStreetMap(Overpass API)の実データへ差し替わるが、
-// 取得中・失敗時のフォールバックとしてもこの配列を使う。給水スポット・カフェは引き続きこのモックのみ。
+// コンビニ・自販機・カフェは起動時にOpenStreetMap(Overpass API)、給水スポット・災害時給水は
+// 東京都水道局のオープンデータの実データへ差し替わるが、取得中・失敗時のフォールバックとしてもこの配列を使う。
 export const mockMapSpots: MapSpot[] = [
   { id: 'spot-1', type: 'convenience', name: 'コンビニ（東京駅八重洲口）', latitude: 35.6798, longitude: 139.7693 },
   { id: 'spot-2', type: 'convenience', name: 'コンビニ（日本橋室町）', latitude: 35.6858, longitude: 139.7735 },
@@ -195,6 +195,7 @@ export const mockMapSpots: MapSpot[] = [
   { id: 'spot-4', type: 'vending', name: '自販機（京橋）', latitude: 35.6772, longitude: 139.7735 },
   { id: 'spot-5', type: 'water', name: '給水スポット（東京駅前）', latitude: 35.6815, longitude: 139.7675 },
   { id: 'spot-6', type: 'water', name: '給水スポット（日本橋）', latitude: 35.684, longitude: 139.7748 },
+  { id: 'spot-9', type: 'disasterWater', name: '災害時給水ステーション（区立堀留児童公園）', latitude: 35.6871, longitude: 139.7792 },
   { id: 'spot-7', type: 'cafe', name: 'カフェ（丸の内）', latitude: 35.6825, longitude: 139.7685 },
   { id: 'spot-8', type: 'cafe', name: 'カフェ（銀座一丁目）', latitude: 35.6722, longitude: 139.766 },
 ];

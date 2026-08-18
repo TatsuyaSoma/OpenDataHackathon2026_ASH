@@ -1,50 +1,88 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { RiskLevel } from '../types';
 import { RISK_CONFIG } from '../constants/riskConfig';
+import { MapRegion } from '../utils/mapProjection';
+import { TokyoWbgtReading, haversineDistanceKm, wbgtToRiskLevel } from '../services/envWbgt';
 
-const GRID_COLS = 8;
-const GRID_ROWS = 8;
+const GRID_COLS = 10;
+const GRID_ROWS = 10;
 
-const RISK_LEVELS_BY_ORDER: RiskLevel[] = ['safeLight', 'safe', 'caution', 'warning', 'danger', 'severe'];
+// 逆距離加重法（IDW）の減衰の強さ。値が大きいほど、近い地点の実況値の影響が強くなる
+// （距離が離れるほど急激に重みが下がり、遠い地点同士の値が平均化されにくくなる）。
+const IDW_POWER = 2;
+
+interface Props {
+  // 現在の地図の表示範囲。ネイティブ版はonCameraMoveから得た実際のカメラ位置、
+  // Web版はMAP_BOUNDS相当の固定範囲を渡す（Web側は表示コンテナ自体が
+  // パン・ズーム操作で変形されるため、範囲自体は固定のままでよい）。
+  region: MapRegion;
+  // 環境省WBGT実況値（実データ）。都内に点在するこれらの地点から
+  // 逆距離加重法で補間してタイルの色を決める。
+  readings: TokyoWbgtReading[];
+}
 
 interface Tile {
   key: string;
-  col: number;
-  row: number;
-  level: RiskLevel;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  color: string;
 }
 
-// 実測WBGTデータ連携までの仮表示。中心部ほど暑くなる緩やかな分布に、
-// タイルごとの緩急をつけて自然な見た目にしている（数値そのものに意味はないダミー値）。
-const mockTileLevel = (col: number, row: number): RiskLevel => {
-  const centerCol = (GRID_COLS - 1) / 2;
-  const centerRow = (GRID_ROWS - 1) / 2;
-  const maxDistance = Math.hypot(centerCol, centerRow);
-  const distance = Math.hypot(col - centerCol, row - centerRow);
-  const wave = Math.sin(col * 0.9) * Math.cos(row * 0.7) * 0.15;
-  const heat = 1 - distance / maxDistance + wave;
-  const index = Math.min(
-    RISK_LEVELS_BY_ORDER.length - 1,
-    Math.max(0, Math.round(heat * (RISK_LEVELS_BY_ORDER.length - 1)))
-  );
-  return RISK_LEVELS_BY_ORDER[index];
+// 指定座標のWBGTを、都内の実況値地点からの逆距離加重法（IDW）で推定する。
+// 地点数が10地点程度と少ないため、あくまで粗い推定（都内全域を対象にした
+// 高解像度メッシュではない）。readingsが空の場合はnullを返す。
+const interpolateWbgt = (latitude: number, longitude: number, readings: TokyoWbgtReading[]): number | null => {
+  if (readings.length === 0) return null;
+
+  let weightedSum = 0;
+  let weightSum = 0;
+  for (const reading of readings) {
+    const distanceKm = haversineDistanceKm(latitude, longitude, reading.latitude, reading.longitude);
+    if (distanceKm < 0.05) return reading.wbgt; // ほぼ同一地点の場合はその値をそのまま使う
+    const weight = 1 / distanceKm ** IDW_POWER;
+    weightedSum += weight * reading.wbgt;
+    weightSum += weight;
+  }
+  return weightedSum / weightSum;
 };
 
 /**
  * マップ上にWBGT危険度をタイル状のグリッドで重ねて表示するレイヤー。
- * 現状は実データ未連携のため、ダミー値による見た目確認用の実装。
+ * 環境省「熱中症予防情報サイト」の実況値（都内10地点程度、`src/services/envWbgt.ts`）を
+ * 逆距離加重法で補間した、実データに基づく（ただし低解像度な）ヒートマップ。
+ * ネイティブ版は現在の地図の表示範囲全体を覆うため、広域表示・パン操作にも追従する。
  */
-export const MapWbgtTileLayer: React.FC = () => {
+export const MapWbgtTileLayer: React.FC<Props> = ({ region, readings }) => {
   const tiles = useMemo(() => {
+    if (readings.length === 0) return [];
+
+    const latMin = region.latitude - region.latitudeDelta / 2;
+    const latMax = region.latitude + region.latitudeDelta / 2;
+    const lngMin = region.longitude - region.longitudeDelta / 2;
+    const lngMax = region.longitude + region.longitudeDelta / 2;
+
     const result: Tile[] = [];
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
-        result.push({ key: `${col}-${row}`, col, row, level: mockTileLevel(col, row) });
+        const cellLat = latMax - ((row + 0.5) / GRID_ROWS) * (latMax - latMin);
+        const cellLng = lngMin + ((col + 0.5) / GRID_COLS) * (lngMax - lngMin);
+        const wbgt = interpolateWbgt(cellLat, cellLng, readings);
+        if (wbgt === null) continue;
+
+        result.push({
+          key: `${col}-${row}`,
+          left: (col / GRID_COLS) * 100,
+          top: (row / GRID_ROWS) * 100,
+          width: 100 / GRID_COLS,
+          height: 100 / GRID_ROWS,
+          color: RISK_CONFIG[wbgtToRiskLevel(wbgt)].color,
+        });
       }
     }
     return result;
-  }, []);
+  }, [region, readings]);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -54,11 +92,11 @@ export const MapWbgtTileLayer: React.FC = () => {
           style={[
             styles.tile,
             {
-              left: `${(tile.col / GRID_COLS) * 100}%`,
-              top: `${(tile.row / GRID_ROWS) * 100}%`,
-              width: `${100 / GRID_COLS}%`,
-              height: `${100 / GRID_ROWS}%`,
-              backgroundColor: RISK_CONFIG[tile.level].color,
+              left: `${tile.left}%`,
+              top: `${tile.top}%`,
+              width: `${tile.width}%`,
+              height: `${tile.height}%`,
+              backgroundColor: tile.color,
             },
           ]}
         />

@@ -1,7 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, Platform, LayoutChangeEvent } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar, LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppleMaps, CameraMoveEvent, GoogleMaps } from 'expo-maps';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import { BedDouble } from 'lucide-react-native';
 import { Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
@@ -11,40 +12,39 @@ import { useNearbySpots } from '../hooks/use-nearby-spots';
 import { useTokyoWaterSpots } from '../hooks/use-tokyo-water-spots';
 import { useNearestWbgt } from '../hooks/use-nearest-wbgt';
 import { useTokyoWbgtGrid } from '../hooks/use-tokyo-wbgt-grid';
-import { MAP_BOUNDS, MapRegion, projectToRegion } from '../utils/mapProjection';
-import { MapDisplayControls } from '../components/MapDisplayControls';
+import { MAP_BOUNDS, projectToMap } from '../utils/mapProjection';
 import { MapLegendCard } from '../components/MapLegendCard';
+import { MapDisplayControls } from '../components/MapDisplayControls';
 import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
 import { MapMemberPin } from '../components/MapMemberPin';
 import { MapSpotPin } from '../components/MapSpotPin';
 import { MapWbgtTileLayer } from '../components/MapWbgtTileLayer';
 import { MapWbgtReferenceBadge } from '../components/MapWbgtReferenceBadge';
+import { MapBackgroundLayer } from '../components/MapBackgroundLayer';
 
-/**
- * ネイティブ（iOS/Android）版マップ画面。expo-mapsで実際のApple Maps/Google Mapsを表示し、
- * その上にこのアプリ独自のメンバーピン（体力ゲージリング等）・スポットピンを重ねて描画する。
- *
- * 【重要】expo-maps（SDK 57時点）のmarkersプロパティは画像アイコンのみ対応で、
- * 体力ゲージや各種バッジを含むカスタムReactコンポーネントをマーカーとして表示できない。
- * また緯度経度→画面座標の変換API（プロジェクション）も提供されていない。
- * そのため、地図自体はexpo-mapsのネイティブビューに任せつつ、ピンは別レイヤーとして
- * 画面に絶対配置し、onCameraMoveで得られる表示範囲（中心座標＋緯度経度スパン）をもとに
- * 自前で線形補間して位置を計算する、という非公式の力技構成になっている
- * （対象エリアが都心の数km四方と狭いため、正確なWebメルカトル図法ではなく
- * 単純な線形補間で近似している。地図を大きく傾ける操作等には追従できない）。
- */
-
-// 環境省WBGT実況値の「最寄り地点」を探す際の基準点（本人がいない場合のフォールバック中心）
+// 環境省WBGT実況値の「最寄り地点」を探す際の基準点（地図表示範囲の中心＝丸の内周辺）
 const MAP_CENTER = {
   latitude: (MAP_BOUNDS.latMin + MAP_BOUNDS.latMax) / 2,
   longitude: (MAP_BOUNDS.lngMin + MAP_BOUNDS.lngMax) / 2,
+};
+
+// MapWbgtTileLayer用の表示範囲。Web版はネイティブ版と異なりカメラの実表示範囲を取得できないが、
+// タイル自体はMAP_ZOOM分だけ拡大・パンされたコンテナ（mapContent）の内側に100%で敷いており、
+// そのコンテナがちょうどMAP_BOUNDSに対応するため、この固定範囲をそのまま使えばよい。
+const WBGT_TILE_REGION = {
+  latitude: MAP_CENTER.latitude,
+  longitude: MAP_CENTER.longitude,
+  latitudeDelta: MAP_BOUNDS.latMax - MAP_BOUNDS.latMin,
+  longitudeDelta: MAP_BOUNDS.lngMax - MAP_BOUNDS.lngMin,
 };
 
 interface Props {
   onOpenMemberDetail?: (member: Member) => void;
 }
 
-// ピンを画面端にクランプする際、アイコンが枠に隠れて見切れないようにする余白
+// 背景画像・ピンの座標系を画面（ビューポート）よりひとまわり大きく持たせ、ドラッグして見回せるようにする倍率
+const MAP_ZOOM = 1.6;
+// ピンを画面端にクランプする際、アイコンが枠に隠れて見切れないようにする余白（メンバーピンはゲージ込みの半径ぶん確保）
 const MEMBER_EDGE_MARGIN = 38;
 const SPOT_EDGE_MARGIN = 18;
 
@@ -53,20 +53,40 @@ interface Size {
   height: number;
 }
 
+interface Offset {
+  x: number;
+  y: number;
+}
+
 interface ScreenPosition {
   x: number; // ビューポートに対する0〜1の相対位置
   y: number;
-  offscreenDirectionDeg?: number; // 表示範囲外に出てクランプした場合、実際の位置への方向（度、0=右・90=下）
+  offscreenDirectionDeg?: number; // 範囲外に出てクランプした場合、実際の位置への方向（度、0=右・90=下）
 }
 
-// projectToRegionで得た（表示範囲外では0〜1の外に出うる）正規化座標を、
-// 画面端にクランプした表示位置に変換する。
-const toScreenPosition = (normalized: { x: number; y: number }, viewport: Size, margin: number): ScreenPosition => {
+const clampPanOffset = (offset: Offset, viewport: Size): Offset => {
+  if (viewport.width === 0 || viewport.height === 0) return offset;
+  const minX = viewport.width - viewport.width * MAP_ZOOM;
+  const minY = viewport.height - viewport.height * MAP_ZOOM;
+  return {
+    x: Math.min(0, Math.max(minX, offset.x)),
+    y: Math.min(0, Math.max(minY, offset.y)),
+  };
+};
+
+// 正規化座標（0〜1）を、現在のパン位置を反映したビューポート内の表示位置に変換する。
+// 範囲外に出た場合は余白ぶん内側にクランプし、実際の位置への方向を添える。
+const toScreenPosition = (
+  normalized: { x: number; y: number },
+  viewport: Size,
+  panOffset: Offset,
+  margin: number
+): ScreenPosition => {
   if (viewport.width === 0 || viewport.height === 0) {
     return { x: normalized.x, y: normalized.y };
   }
-  const screenX = normalized.x * viewport.width;
-  const screenY = normalized.y * viewport.height;
+  const screenX = normalized.x * viewport.width * MAP_ZOOM + panOffset.x;
+  const screenY = normalized.y * viewport.height * MAP_ZOOM + panOffset.y;
 
   const clampedX = Math.min(Math.max(screenX, margin), viewport.width - margin);
   const clampedY = Math.min(Math.max(screenY, margin), viewport.height - margin);
@@ -80,10 +100,6 @@ const toScreenPosition = (normalized: { x: number; y: number }, viewport: Size, 
       : undefined,
   };
 };
-
-// 初期カメラのズーム。都心の数ブロック程度が見える大きさの目安値
-// （expo-mapsのcameraPositionは初期値のみで、以降はネイティブ地図が自身でパン/ズームを処理する）。
-const INITIAL_ZOOM = 15;
 
 export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
   const { members } = useMembers();
@@ -99,39 +115,72 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
   const [waterEnabled, setWaterEnabled] = useState(true);
   const [disasterWaterEnabled, setDisasterWaterEnabled] = useState(true);
 
+  // マップのドラッグ操作。表示は倍率MAP_ZOOM分だけビューポートより大きく、ドラッグして見回せる。
+  // ドラッグの実処理はreact-native-gesture-handlerのGesture.Panで行う（PanResponderよりWeb上での
+  // ポインタ追従が安定するため）。ジェスチャーのコールバックはUIスレッドのworkletとして動くため、
+  // 座標計算はuseSharedValueで保持し、React側の状態（画面表示に使う）へはrunOnJS経由で反映する。
   const [viewportSize, setViewportSize] = useState<Size>({ width: 0, height: 0 });
-  // 現在の地図の表示範囲（中心座標＋緯度経度スパン）。onCameraMoveは初回マウント時にも
-  // 一度発火するため、地図が読み込まれ次第この値が入る。
-  const [region, setRegion] = useState<MapRegion | null>(null);
+  const [panOffset, setPanOffset] = useState<Offset>({ x: 0, y: 0 });
+  const viewportWidthShared = useSharedValue(0);
+  const viewportHeightShared = useSharedValue(0);
+  const savedPanX = useSharedValue(0);
+  const savedPanY = useSharedValue(0);
+  const currentPanX = useSharedValue(0);
+  const currentPanY = useSharedValue(0);
 
   const handleMapAreaLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
-    setViewportSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+    if (width === viewportSize.width && height === viewportSize.height) return;
+    const nextViewport = { width, height };
+    setViewportSize(nextViewport);
+    viewportWidthShared.value = width;
+    viewportHeightShared.value = height;
+
+    // 初期表示は自分（本人）が画面中央に来るようにする
+    const selfMember = members.find((member) => member.isSelf);
+    const centerNormalized = selfMember
+      ? projectToMap(selfMember.location.latitude, selfMember.location.longitude)
+      : { x: 0.5, y: 0.5 };
+    const centered = clampPanOffset(
+      {
+        x: width / 2 - centerNormalized.x * width * MAP_ZOOM,
+        y: height / 2 - centerNormalized.y * height * MAP_ZOOM,
+      },
+      nextViewport
+    );
+    savedPanX.value = centered.x;
+    savedPanY.value = centered.y;
+    currentPanX.value = centered.x;
+    currentPanY.value = centered.y;
+    setPanOffset(centered);
   };
 
-  const handleCameraMove = useCallback((event: CameraMoveEvent) => {
-    const { latitude, longitude } = event.coordinates;
-    if (latitude === undefined || longitude === undefined) return;
-    setRegion({
-      latitude,
-      longitude,
-      latitudeDelta: event.latitudeDelta,
-      longitudeDelta: event.longitudeDelta,
+  const panGesture = Gesture.Pan()
+    .minDistance(3)
+    .onUpdate((event) => {
+      const contentWidth = viewportWidthShared.value * MAP_ZOOM;
+      const contentHeight = viewportHeightShared.value * MAP_ZOOM;
+      const minX = viewportWidthShared.value - contentWidth;
+      const minY = viewportHeightShared.value - contentHeight;
+      currentPanX.value = Math.min(0, Math.max(minX, savedPanX.value + event.translationX));
+      currentPanY.value = Math.min(0, Math.max(minY, savedPanY.value + event.translationY));
+      runOnJS(setPanOffset)({ x: currentPanX.value, y: currentPanY.value });
+    })
+    .onEnd(() => {
+      savedPanX.value = currentPanX.value;
+      savedPanY.value = currentPanY.value;
     });
-  }, []);
 
   const hasResting = members.some((m) => m.isResting);
-  const selfMember = members.find((m) => m.isSelf);
 
   const memberPositions = useMemo(() => {
-    if (!region) return {};
     const positions: Record<string, ScreenPosition> = {};
     members.forEach((member) => {
-      const normalized = projectToRegion(member.location.latitude, member.location.longitude, region);
-      positions[member.id] = toScreenPosition(normalized, viewportSize, MEMBER_EDGE_MARGIN);
+      const normalized = projectToMap(member.location.latitude, member.location.longitude);
+      positions[member.id] = toScreenPosition(normalized, viewportSize, panOffset, MEMBER_EDGE_MARGIN);
     });
     return positions;
-  }, [members, viewportSize, region]);
+  }, [members, viewportSize, panOffset]);
 
   // コンビニ・自販機・カフェはOpenStreetMap(Overpass API)、給水スポット・災害時給水は
   // 東京都水道局のオープンデータの実データを取得し、取得中・失敗時はモックにフォールバックする
@@ -156,12 +205,10 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
   });
 
   const spotPositions: Record<string, ScreenPosition> = {};
-  if (region) {
-    visibleSpots.forEach((spot) => {
-      const normalized = projectToRegion(spot.latitude, spot.longitude, region);
-      spotPositions[spot.id] = toScreenPosition(normalized, viewportSize, SPOT_EDGE_MARGIN);
-    });
-  }
+  visibleSpots.forEach((spot) => {
+    const normalized = projectToMap(spot.latitude, spot.longitude);
+    spotPositions[spot.id] = toScreenPosition(normalized, viewportSize, panOffset, SPOT_EDGE_MARGIN);
+  });
 
   if (members.length === 0) {
     return (
@@ -177,16 +224,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
     );
   }
 
-  // 初期カメラ位置は本人（isSelf）を中心にする。cameraPositionは初期値のみに使われ、
-  // 以降のパン・ズーム操作はネイティブ地図が自前で処理する（再レンダーで位置が戻ることはない）。
-  const initialCameraPosition = {
-    coordinates: {
-      latitude: selfMember?.location.latitude ?? MAP_CENTER.latitude,
-      longitude: selfMember?.location.longitude ?? MAP_CENTER.longitude,
-    },
-    zoom: INITIAL_ZOOM,
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -196,25 +233,22 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
       </View>
 
       <View style={styles.mapArea} onLayout={handleMapAreaLayout}>
-        <View style={styles.mapBackground}>
-          {Platform.OS === 'ios' ? (
-            <AppleMaps.View
-              style={StyleSheet.absoluteFill}
-              cameraPosition={initialCameraPosition}
-              onCameraMove={handleCameraMove}
-            />
-          ) : (
-            <GoogleMaps.View
-              style={StyleSheet.absoluteFill}
-              cameraPosition={initialCameraPosition}
-              onCameraMove={handleCameraMove}
-            />
-          )}
+        <GestureDetector gesture={panGesture}>
+          <View style={styles.mapBackground}>
+            <View
+              style={[
+                styles.mapContent,
+                {
+                  width: viewportSize.width * MAP_ZOOM,
+                  height: viewportSize.height * MAP_ZOOM,
+                  transform: [{ translateX: panOffset.x }, { translateY: panOffset.y }],
+                },
+              ]}>
+              <MapBackgroundLayer />
+              {heatmapEnabled && <MapWbgtTileLayer region={WBGT_TILE_REGION} readings={wbgtReadings} />}
+            </View>
 
-          {region && heatmapEnabled && <MapWbgtTileLayer region={region} readings={wbgtReadings} />}
-
-          {region &&
-            visibleSpots.map((spot) => (
+            {visibleSpots.map((spot) => (
               <MapSpotPin
                 key={spot.id}
                 spot={spot}
@@ -224,25 +258,23 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
               />
             ))}
 
-          {region &&
-            membersEnabled &&
-            members.map((member) => (
-              <MapMemberPin
-                key={member.id}
-                member={member}
-                x={memberPositions[member.id].x}
-                y={memberPositions[member.id].y}
-                onPress={onOpenMemberDetail}
-                offscreenDirectionDeg={memberPositions[member.id].offscreenDirectionDeg}
-              />
-            ))}
-        </View>
-
-        {region && heatmapEnabled && (
-          <View style={styles.legendWrapper} pointerEvents="box-none">
-            <MapLegendCard />
+            {membersEnabled &&
+              members.map((member) => (
+                <MapMemberPin
+                  key={member.id}
+                  member={member}
+                  x={memberPositions[member.id].x}
+                  y={memberPositions[member.id].y}
+                  onPress={onOpenMemberDetail}
+                  offscreenDirectionDeg={memberPositions[member.id].offscreenDirectionDeg}
+                />
+              ))}
           </View>
-        )}
+        </GestureDetector>
+
+        <View style={styles.legendWrapper} pointerEvents="box-none">
+          <MapLegendCard />
+        </View>
 
         {hasResting && (
           <View style={styles.restingPill}>
@@ -321,6 +353,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  mapContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   legendWrapper: {
     position: 'absolute',
