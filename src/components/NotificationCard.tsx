@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bell, ChevronRight, Lightbulb, MapPin, MessageCircleQuestion, Smile, User } from 'lucide-react-native';
-import { Member, NotificationItem } from '../types';
+import React, { useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RISK_CONFIG, isHighRisk } from '../constants/riskConfig';
-import { colors, spacing, radius } from '../constants/theme';
+import { colors, radius, spacing } from '../constants/theme';
+import { Member, NotificationItem } from '../types';
 
 interface Props {
   notification: NotificationItem;
@@ -62,10 +62,14 @@ export const NotificationCard: React.FC<Props> = ({
             <Text style={styles.time}>{notification.time}</Text>
           </View>
           <Text style={styles.message}>
-            <Text style={{ color: config.color, fontWeight: '700' }}>
-              {config.label}（レベル{config.order}）
-            </Text>
-            {notification.changed ? 'になりました' : 'です'}
+            {notification.message ?? (
+              <>
+                <Text style={{ color: config.color, fontWeight: '700' }}>
+                  {config.label}（レベル{config.order}）
+                </Text>
+                {notification.changed ? 'になりました' : 'です'}
+              </>
+            )}
           </Text>
           <View style={styles.locationRow}>
             <MapPin size={12} color={colors.textSecondary} />

@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import type * as NotificationsType from 'expo-notifications';
+import { Platform } from 'react-native';
 
 // Expo Go（特にAndroid）では 'expo-notifications' をimportした時点（モジュール評価時）で
 // 例外が投げられ、アプリ全体をクラッシュさせることがある。
@@ -49,16 +49,16 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 };
 
 /**
- * 本人の熱中症危険度がしきい値を超えたことを端末のローカル通知で知らせる。
+ * 本人の体力ゲージが減ってきたことを端末のローカル通知で知らせる。
  * サーバーを介さないため、他メンバーの端末には届かない（バックエンド未実装のため対応不可）。
  */
-export const sendDangerNotification = async (memberName: string, riskLabel: string): Promise<void> => {
+export const sendDangerNotification = async (message: string): Promise<void> => {
   if (!Notifications) return;
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '熱中症の危険度が上昇しています',
-        body: `${memberName}の危険度が「${riskLabel}」になりました。水分補給や涼しい場所での休憩を心がけてください。`,
+        title: '体力ゲージが減っています',
+        body: message,
       },
       trigger: null,
     });

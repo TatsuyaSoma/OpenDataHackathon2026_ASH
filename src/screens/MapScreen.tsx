@@ -1,24 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, Platform, LayoutChangeEvent, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppleMaps, CameraMoveEvent, GoogleMaps } from 'expo-maps';
 import { BedDouble, LocateFixed } from 'lucide-react-native';
-import { MapSpot, Member } from '../types';
-import { colors, spacing, radius } from '../constants/theme';
-import { mockMapSpots } from '../data/mockData';
-import { useMembers } from '../context/MembersContext';
-import { useNearbySpots } from '../hooks/use-nearby-spots';
-import { useTokyoWaterSpots } from '../hooks/use-tokyo-water-spots';
-import { useNearestWbgt } from '../hooks/use-nearest-wbgt';
-import { useTokyoWbgtGrid } from '../hooks/use-tokyo-wbgt-grid';
-import { MAP_BOUNDS, MapRegion, projectToRegion } from '../utils/mapProjection';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapDisplayControls } from '../components/MapDisplayControls';
 import { MapLegendCard } from '../components/MapLegendCard';
-import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
 import { MapMemberPin } from '../components/MapMemberPin';
+import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
 import { MapSpotPin } from '../components/MapSpotPin';
-import { MapWbgtTileLayer } from '../components/MapWbgtTileLayer';
 import { MapWbgtReferenceBadge } from '../components/MapWbgtReferenceBadge';
+import { MapWbgtTileLayer } from '../components/MapWbgtTileLayer';
+import { colors, radius, spacing } from '../constants/theme';
+import { useMembers } from '../context/MembersContext';
+import { mockMapSpots } from '../data/mockData';
+import { useNearbySpots } from '../hooks/use-nearby-spots';
+import { useNearestWbgt } from '../hooks/use-nearest-wbgt';
+import { useTokyoWaterSpots } from '../hooks/use-tokyo-water-spots';
+import { useTokyoWbgtGrid } from '../hooks/use-tokyo-wbgt-grid';
+import { MapSpot, Member } from '../types';
+import { MAP_BOUNDS, MapRegion, projectToRegion } from '../utils/mapProjection';
 
 /**
  * ネイティブ（iOS/Android）版マップ画面。expo-mapsで実際のApple Maps/Google Mapsを表示し、
@@ -396,8 +396,8 @@ const styles = StyleSheet.create({
   },
   wbgtBadgeWrapper: {
     position: 'absolute',
-    bottom: spacing.md,
-    left: spacing.md,
+    bottom: spacing.sm,
+    left: 72,
   },
   // 右上に「現在地ボタン→表示設定→お休み中バナー」を縦に積むコンテナ。
   // 個別にposition:absoluteで配置すると、凡例カードや実況バッジと横方向に衝突しやすいため、

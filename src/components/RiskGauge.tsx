@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { RiskLevel } from '../types';
 import { RISK_CONFIG, RISK_LEVEL_COUNT } from '../constants/riskConfig';
 import { colors } from '../constants/theme';
+import { RiskLevel } from '../types';
 
 interface Props {
   riskLevel: RiskLevel; // リング（ゲージ）の色・塗りつぶし量のフォールバックに使う危険度レベル
   score?: number; // 0〜100。指定時はリングの塗りつぶし量に使う
   valueLabel?: number; // 中央に表示する数値。未指定の場合はscoreを表示する（ゲージの値と表示したい数値が異なる場合に指定する）
+  valueSuffix?: string; // 中央の数値に付ける単位
   valueColor?: string; // 中央の数値の色。未指定の場合はriskLevelの色を使う（ゲージの色と数値の色を分けたい場合に指定する）
   size?: number;
   strokeWidth?: number;
@@ -25,6 +26,7 @@ export const RiskGauge: React.FC<Props> = ({
   riskLevel,
   score,
   valueLabel,
+  valueSuffix,
   valueColor,
   size = 56,
   strokeWidth = 6,
@@ -83,7 +85,7 @@ export const RiskGauge: React.FC<Props> = ({
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.6}>
-          {displayValue}
+          {displayValue}{valueSuffix}
         </Text>
       )}
     </View>

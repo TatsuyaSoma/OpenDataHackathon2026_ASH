@@ -48,6 +48,7 @@ export interface NotificationItem {
   id: string;
   memberId: string;
   riskLevel: RiskLevel;
+  message?: string; // リアルタイム通知と同じ本文（旧形式の履歴では未設定）
   changed: boolean; // true: 危険度が変化した通知（〜になりました） / false: 現在の状態通知（〜です）
   location: string; // 表示用の住所
   time: string;     // 表示用 "9:41" 形式

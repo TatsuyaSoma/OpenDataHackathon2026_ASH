@@ -1,10 +1,10 @@
+import { ChevronRight, MapPin, User } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronRight, MapPin, Moon, User } from 'lucide-react-native';
-import { Member } from '../types';
-import { isHighRisk, RISK_CONFIG } from '../constants/riskConfig';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { isHighRisk } from '../constants/riskConfig';
+import { colors, radius, spacing } from '../constants/theme';
 import { estimateVitalityLevel } from '../logic/vitalityGauge';
-import { colors, spacing, radius } from '../constants/theme';
+import { Member } from '../types';
 import { RiskBadge } from './RiskBadge';
 import { RiskGauge } from './RiskGauge';
 
@@ -47,12 +47,6 @@ export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron, onPr
       <View style={styles.info}>
         <View style={styles.nameRow}>
           <Text style={styles.name}>{member.name}</Text>
-          {member.isResting && (
-            <View style={styles.restingChip}>
-              <Moon size={12} color={colors.primary} />
-              <Text style={styles.restingChipText}>お休み中</Text>
-            </View>
-          )}
         </View>
         <Text style={styles.subInfo}>
           {member.age}歳　{member.gender}
@@ -74,12 +68,12 @@ export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron, onPr
       </View>
 
       <View style={styles.rightColumn}>
-        <RiskBadge riskLevel={member.riskLevel} />
+        <RiskBadge riskLevel={member.riskLevel} isResting={member.isResting} />
         <RiskGauge
           riskLevel={estimateVitalityLevel(member.vitality)}
           score={member.vitality}
-          valueLabel={member.riskScore}
-          valueColor={RISK_CONFIG[member.riskLevel].color}
+          valueLabel={Math.round(member.vitality)}
+          valueSuffix="%"
         />
       </View>
 
@@ -131,21 +125,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  restingChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: spacing.sm,
-    backgroundColor: colors.restBackground,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  restingChipText: {
-    fontSize: 11,
-    color: colors.primary,
-    marginLeft: 2,
-    fontWeight: '600',
   },
   subInfo: {
     fontSize: 14,

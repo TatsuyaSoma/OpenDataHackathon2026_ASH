@@ -1,26 +1,26 @@
+import { BedDouble, LocateFixed } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, LayoutChangeEvent, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { LayoutChangeEvent, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
-import { BedDouble, LocateFixed } from 'lucide-react-native';
-import { MapSpot, Member } from '../types';
-import { colors, spacing, radius } from '../constants/theme';
-import { mockMapSpots } from '../data/mockData';
-import { useMembers } from '../context/MembersContext';
-import { useNearbySpots } from '../hooks/use-nearby-spots';
-import { useTokyoWaterSpots } from '../hooks/use-tokyo-water-spots';
-import { useNearestWbgt } from '../hooks/use-nearest-wbgt';
-import { useTokyoWbgtGrid } from '../hooks/use-tokyo-wbgt-grid';
-import { MAP_BOUNDS, projectToMap } from '../utils/mapProjection';
-import { MapLegendCard } from '../components/MapLegendCard';
-import { MapDisplayControls } from '../components/MapDisplayControls';
-import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
-import { MapMemberPin } from '../components/MapMemberPin';
-import { MapSpotPin } from '../components/MapSpotPin';
-import { MapWbgtTileLayer } from '../components/MapWbgtTileLayer';
-import { MapWbgtReferenceBadge } from '../components/MapWbgtReferenceBadge';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapBackgroundLayer } from '../components/MapBackgroundLayer';
+import { MapDisplayControls } from '../components/MapDisplayControls';
+import { MapLegendCard } from '../components/MapLegendCard';
+import { MapMemberPin } from '../components/MapMemberPin';
+import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
+import { MapSpotPin } from '../components/MapSpotPin';
+import { MapWbgtReferenceBadge } from '../components/MapWbgtReferenceBadge';
+import { MapWbgtTileLayer } from '../components/MapWbgtTileLayer';
+import { colors, radius, spacing } from '../constants/theme';
+import { useMembers } from '../context/MembersContext';
+import { mockMapSpots } from '../data/mockData';
+import { useNearbySpots } from '../hooks/use-nearby-spots';
+import { useNearestWbgt } from '../hooks/use-nearest-wbgt';
+import { useTokyoWaterSpots } from '../hooks/use-tokyo-water-spots';
+import { useTokyoWbgtGrid } from '../hooks/use-tokyo-wbgt-grid';
+import { MapSpot, Member } from '../types';
+import { MAP_BOUNDS, projectToMap } from '../utils/mapProjection';
 
 // 環境省WBGT実況値の「最寄り地点」を探す際の基準点（地図表示範囲の中心＝丸の内周辺）
 const MAP_CENTER = {
@@ -324,11 +324,12 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
           <MapLegendCard />
         </View>
 
-        {heatmapEnabled && nearestWbgt && (
-          <View style={styles.wbgtBadgeWrapper}>
-            <MapWbgtReferenceBadge data={nearestWbgt} />
+        <View style={styles.bottomAttributionRow} pointerEvents="none">
+          <View style={styles.googleAttribution}>
+            <Text style={styles.googleLogo}>Google</Text>
           </View>
-        )}
+          {heatmapEnabled && nearestWbgt && <MapWbgtReferenceBadge data={nearestWbgt} />}
+        </View>
 
         <View style={styles.rightColumn} pointerEvents="box-none">
           {members.some((member) => member.isSelf) && (
@@ -422,10 +423,23 @@ const styles = StyleSheet.create({
     top: spacing.md,
     left: spacing.md,
   },
-  wbgtBadgeWrapper: {
+  bottomAttributionRow: {
     position: 'absolute',
-    bottom: spacing.md,
-    left: spacing.md,
+    bottom: spacing.sm,
+    left: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  googleAttribution: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+  },
+  googleLogo: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#4285F4',
   },
   // 右上に「現在地ボタン→表示設定→お休み中バナー」を縦に積むコンテナ。
   // 個別にposition:absoluteで配置すると、凡例カードや実況バッジと横方向に衝突しやすいため、

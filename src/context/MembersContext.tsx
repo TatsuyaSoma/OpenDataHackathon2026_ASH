@@ -1,17 +1,17 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Member } from '../types';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { isHighRisk } from '../constants/riskConfig';
 import { mockMembers } from '../data/mockData';
-import { fetchNearestWeatherBatch } from '../services/amedasWeather';
 import { estimateRiskLevel, estimateRiskScore } from '../logic/riskCalculation';
 import { applyVitalityTick } from '../logic/vitalityGauge';
-import { isHighRisk, RISK_CONFIG } from '../constants/riskConfig';
-import { useNotifications } from './NotificationsContext';
+import { fetchNearestWeatherBatch } from '../services/amedasWeather';
 import {
-  requestNotificationPermission,
-  sendDangerNotification,
-  sendVitalityReminderNotification,
+    requestNotificationPermission,
+    sendDangerNotification,
+    sendVitalityReminderNotification,
 } from '../services/localNotifications';
+import { Member } from '../types';
+import { useNotifications } from './NotificationsContext';
 
 interface MembersContextValue {
   members: Member[];
@@ -233,6 +233,7 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
         id: `vitality-${member.id}-${Date.now()}`,
         memberId: member.id,
         riskLevel: member.riskLevel,
+        message,
         changed: true,
         location: member.location.address,
         time: formatTimeLabel(new Date()),
@@ -242,7 +243,7 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, [derivedMembers, addNotification]);
 
-  // 本人の危険度が「危険」以上になった瞬間に、端末のローカル通知で知らせる
+  // 本人の危険度が「危険」以上になった瞬間に、体力ゲージの減少として端末通知で知らせる
   // （サーバーを介さないため、他メンバーの端末には届かない）
   const previousSelfHighRiskRef = useRef(false);
 
@@ -252,8 +253,20 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const isCurrentlyHighRisk = isHighRisk(self.riskLevel);
     if (isCurrentlyHighRisk && !previousSelfHighRiskRef.current) {
+      const message = `${self.name}の体力ゲージが減ってきています。水分補給や涼しい場所での休憩を心がけてください。`;
       requestNotificationPermission().then((granted) => {
-        if (granted) sendDangerNotification(self.name, RISK_CONFIG[self.riskLevel].label);
+        if (granted) sendDangerNotification(message);
+      });
+      addNotification({
+        id: `danger-${self.id}-${Date.now()}`,
+        memberId: self.id,
+        riskLevel: self.riskLevel,
+        message,
+        changed: true,
+        location: self.location.address,
+        time: formatTimeLabel(new Date()),
+        dateLabel: '今日',
+        isRead: false,
       });
     }
     previousSelfHighRiskRef.current = isCurrentlyHighRisk;
