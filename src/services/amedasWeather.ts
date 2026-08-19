@@ -137,6 +137,47 @@ export const fetchNearestWeather = async (
 };
 
 /**
+ * 複数地点分の最寄りアメダス実況値を、観測地点一覧・最新観測データを1回だけ取得してまとめて求める。
+ * メンバーごとに`fetchNearestWeather`を個別に呼ぶと、地点数ぶんだけ最新観測データ（数百KB）を
+ * 重複して取得してしまうため、見守りメンバー全員分をまとめて更新する用途ではこちらを使う。
+ * 該当地点が見つからないポイントは戻り値のMapに含まれない。
+ */
+export const fetchNearestWeatherBatch = async (
+  points: { id: string; latitude: number; longitude: number }[]
+): Promise<Map<string, NearestWeatherResult>> => {
+  const { stationTable, latestData, latestTimeText } = await fetchStationTableAndLatestData();
+  const stations = Object.entries(stationTable);
+  const results = new Map<string, NearestWeatherResult>();
+
+  for (const point of points) {
+    const candidates = stations
+      .map(([stationId, station]) => ({
+        stationId,
+        station,
+        distanceKm: haversineDistanceKm(
+          point.latitude,
+          point.longitude,
+          toDecimalDegrees(station.lat),
+          toDecimalDegrees(station.lon)
+        ),
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+
+    for (const { stationId, station } of candidates) {
+      const observation = latestData[stationId];
+      const temp = observation?.temp?.[0];
+      const humidity = observation?.humidity?.[0];
+      if (temp != null && humidity != null) {
+        results.set(point.id, { temperature: temp, humidity, stationName: station.kjName, observedAt: latestTimeText });
+        break;
+      }
+    }
+  }
+
+  return results;
+};
+
+/**
  * 指定範囲内にある、気温・湿度の両方を観測しているアメダス地点をすべて取得する。
  * マップのヒートマップ表示に使う。
  */

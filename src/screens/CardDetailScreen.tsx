@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, History, MoreVertical } from 'lucide-react-native';
 import { Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';

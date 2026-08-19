@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Member } from '../types';
 import { mockMembers } from '../data/mockData';
-import { useNearbyWeather } from '../hooks/use-nearby-weather';
+import { fetchNearestWeatherBatch } from '../services/amedasWeather';
 import { estimateRiskLevel, estimateRiskScore } from '../logic/riskCalculation';
 import { applyVitalityTick } from '../logic/vitalityGauge';
 import { isHighRisk, RISK_CONFIG } from '../constants/riskConfig';
@@ -39,9 +39,12 @@ const formatTimeLabel = (date: Date) => {
 // （増減ペース自体はsrc/logic/vitalityGauge.tsのDECAY_RATE_PER_MINUTE等で調整する）
 const VITALITY_TICK_INTERVAL_MS = 5000;
 
-// 本人の気温に上乗せする補正値（℃）。アメダス実測値だけだと危険度が低めに出て
-// 体力ゲージが動かないことがあるため、屋外での体感に近づける形で高めに補正する。
-const SELF_RISK_BOOST_CELSIUS = 5;
+// 気温に上乗せする補正値（℃）。アメダス実測値は日陰基準のため、これだけだと危険度が低めに出て
+// 体力ゲージが動かないことがあるため、屋外での体感に近づける形で全メンバー分を一律に高めに補正する。
+const OUTDOOR_FEELS_LIKE_BOOST_CELSIUS = 5;
+
+// メンバー全員分の気温・湿度を、それぞれの現在地に最も近いアメダス実測値で更新する間隔
+const WEATHER_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 // メンバーの体力ゲージがこの値を下回るたびに、回復を促すリマインダー通知を送る（高い順）
 const VITALITY_REMINDER_THRESHOLDS = [70, 40];
@@ -149,29 +152,53 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(intervalId);
   }, []);
 
-  // 本人（isSelf: true のメンバー）の位置は、モックの整合性を保つため実際の現在地では上書きしない
-  // （固定のモック位置のまま）。気温・湿度だけは、そのモック位置に対応する気象庁アメダスの実データで更新する。
-  const selfLocation = members.find((member) => member.isSelf)?.location;
-  const nearbyWeather = useNearbyWeather(selfLocation?.latitude, selfLocation?.longitude);
+  // メンバーの位置（モックの登録住所。実際の現在地取得は行わない）は変えず、気温・湿度だけを
+  // それぞれの位置に最も近い気象庁アメダス観測地点の実データで更新する。これにより、危険度が
+  // メンバーごとの居場所に対応した値になる（登録住所が近い者同士は同じ観測地点の値を共有する）。
+  const locationsKey = members
+    .map((member) => `${member.id}:${member.location.latitude},${member.location.longitude}`)
+    .join('|');
 
   useEffect(() => {
-    if (nearbyWeather.status !== 'success' || !nearbyWeather.weather) return;
-    const { temperature, humidity } = nearbyWeather.weather;
+    if (members.length === 0) return;
+    let cancelled = false;
 
-    setMembers((prev) =>
-      prev.map((member) =>
-        member.isSelf
-          ? {
-              ...member,
-              // アメダスの実測値は日陰基準で、屋外での体感より低めに出ることが多い。
-              // 本人の体力ゲージが時間経過でしっかり動く（減る）デモになるよう、気温に上乗せしておく。
-              environment: { ...member.environment, temperature: temperature + SELF_RISK_BOOST_CELSIUS, humidity },
-              lastUpdated: formatTimeLabel(new Date()),
-            }
-          : member
-      )
-    );
-  }, [nearbyWeather.status, nearbyWeather.weather]);
+    const refresh = () => {
+      const points = members.map((member) => ({
+        id: member.id,
+        latitude: member.location.latitude,
+        longitude: member.location.longitude,
+      }));
+
+      fetchNearestWeatherBatch(points)
+        .then((results) => {
+          if (cancelled || results.size === 0) return;
+          setMembers((prev) =>
+            prev.map((member) => {
+              const weather = results.get(member.id);
+              if (!weather) return member;
+              return {
+                ...member,
+                environment: {
+                  ...member.environment,
+                  temperature: weather.temperature + OUTDOOR_FEELS_LIKE_BOOST_CELSIUS,
+                  humidity: weather.humidity,
+                },
+                lastUpdated: formatTimeLabel(new Date()),
+              };
+            })
+          );
+        })
+        .catch((error) => console.warn('メンバーの気象データ取得に失敗しました:', error));
+    };
+
+    refresh();
+    const intervalId = setInterval(refresh, WEATHER_REFRESH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [locationsKey]);
 
   // 全メンバーの体力ゲージが一定のしきい値を下回るたびに、ローカル通知を送り通知履歴にも記録する
   // （しきい値を跨ぐたびに1回だけ通知するので、ゲージが下がり続ける間は段階的に複数回届く）。

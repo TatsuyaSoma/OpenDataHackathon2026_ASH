@@ -14,6 +14,9 @@ interface Props {
   // ドラッグして表示範囲外に出た場合、画面端にクランプして表示する際の実際の位置への方向（度、0=右）。
   // 指定時は画面端にいることが分かるよう矢印バッジを表示し、本体を少し薄く見せる。
   offscreenDirectionDeg?: number;
+  // 画面端の矢印バッジをタップした際のハンドラ。指定時、遠方にいるメンバーへ
+  // カメラをワンタップでジャンプさせる導線として使う（アバター本体のonPressとは別動作）。
+  onPressOffscreenIndicator?: (member: Member) => void;
 }
 
 const SIZE = 56;
@@ -29,7 +32,14 @@ const PULSE_SIZE = SIZE + 24;
  * 基準に位置決めしている。名前タグを含むwrapper全体を基準にすると、名前タグの高さの分だけ
  * ゲージの中心がアイコンの中心からずれてしまうため。
  */
-export const MapMemberPin: React.FC<Props> = ({ member, x, y, onPress, offscreenDirectionDeg }) => {
+export const MapMemberPin: React.FC<Props> = ({
+  member,
+  x,
+  y,
+  onPress,
+  offscreenDirectionDeg,
+  onPressOffscreenIndicator,
+}) => {
   const [imageFailed, setImageFailed] = useState(false);
   const showFallbackAvatar = !member.photoUrl || imageFailed;
   const isOffscreen = offscreenDirectionDeg !== undefined;
@@ -81,9 +91,13 @@ export const MapMemberPin: React.FC<Props> = ({ member, x, y, onPress, offscreen
         )}
 
         {isOffscreen && (
-          <View style={styles.directionBadge}>
+          <TouchableOpacity
+            style={styles.directionBadge}
+            hitSlop={10}
+            activeOpacity={0.7}
+            onPress={() => onPressOffscreenIndicator?.(member)}>
             <ChevronRight size={12} color="#FFFFFF" style={{ transform: [{ rotate: `${offscreenDirectionDeg}deg` }] }} />
-          </View>
+          </TouchableOpacity>
         )}
       </View>
 

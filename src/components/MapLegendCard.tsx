@@ -12,7 +12,7 @@ const LEVELS = Object.values(RISK_CONFIG).sort((a, b) => a.order - b.order);
 export const MapLegendCard: React.FC = () => {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>熱中症危険度の目安（気温・湿度の実測値ベース）</Text>
+      <Text style={styles.title}>熱中症危険度の目安</Text>
       <View style={styles.gradientRow}>
         {LEVELS.map((level) => (
           <View key={level.label} style={[styles.segment, { backgroundColor: level.color }]} />
@@ -34,6 +34,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBackground,
     borderRadius: radius.md,
     padding: spacing.md,
+    minWidth: 220,
     maxWidth: 260,
   },
   title: {

@@ -39,7 +39,7 @@ const TOKYO_WBGT_POINTS: TokyoWbgtPoint[] = [
 interface SurveyRecord {
   wbgt_no: number;
   wbgt_date: string; // "2026/08/18 13:00:00"
-  wbgt_WO: string; // 暑さ指数（屋外推定値）
+  wbgt_WO: string | null; // 暑さ指数（屋外推定値）。進行中の時間帯はnullになることがある
 }
 
 interface SurveyResponse {
@@ -112,9 +112,12 @@ const fetchLatestByPoint = async (): Promise<Map<number, SurveyRecord>> => {
   const body: SurveyResponse = await response.json();
   if (body.status !== 'success') return new Map();
 
-  // 地点ごとに最新の1件だけを残す
+  // 地点ごとに、値が入っている最新の1件だけを残す。
+  // 進行中の時間帯（例: 直近1時間）はwbgt_WOがnullで返ってくることがあるため、
+  // それを最新として拾ってしまうと直前の有効な実況値が失われてしまう。
   const latestByPoint = new Map<number, SurveyRecord>();
   for (const record of body.data) {
+    if (record.wbgt_WO === null || record.wbgt_WO === undefined) continue;
     const current = latestByPoint.get(record.wbgt_no);
     if (!current || record.wbgt_date > current.wbgt_date) {
       latestByPoint.set(record.wbgt_no, record);

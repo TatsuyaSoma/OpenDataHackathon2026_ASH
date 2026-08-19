@@ -11,6 +11,9 @@ export default function Index() {
         router.push({ pathname: '/member/[id]', params: { id: member.id } })
       }
       onOpenNotifications={() => router.push('/notifications')}
+      onPressMemberLocation={(member: Member) =>
+        router.push({ pathname: '/map', params: { focusMemberId: member.id } })
+      }
     />
   );
 }

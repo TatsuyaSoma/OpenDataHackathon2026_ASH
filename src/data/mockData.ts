@@ -10,7 +10,7 @@ const memberPhotoUri = (asset: number) => Asset.fromModule(asset).uri;
 
 export const mockMembers: Member[] = [
   {
-    // この端末を使っている本人（母親）。妹と一緒に東京駅前にいる。
+    // この端末を使っている本人（母親）。子供たちの通う小学校の近くにある実家にいる。
     // モックの整合性を保つため、実際の現在地取得は行わず固定位置のまま
     // （気温・湿度はこの位置に対応する気象庁アメダスの実データで自動更新されます）。
     id: 'member-self',
@@ -22,9 +22,9 @@ export const mockMembers: Member[] = [
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/okaasan.png')),
     location: {
-      address: '東京都千代田区丸の内一丁目',
-      latitude: 35.681236,
-      longitude: 139.767125,
+      address: '神奈川県横浜市港北区箕輪町（実家）',
+      latitude: 35.559,
+      longitude: 139.643,
     },
     // 実測データ取得前・失敗時も体力ゲージが動作するよう、危険度が高めに出る値を初期値としておく
     // （取得できた場合はアメダスの実測値＋補正で上書きされる）
@@ -42,12 +42,11 @@ export const mockMembers: Member[] = [
     birthDate: '1985年2月3日',
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/otousan.png')),
-    // お兄ちゃんと一緒に、コレド室町へ向かう途中で日本橋室町の路上にいる。
-    // 同じ場所にいるお兄ちゃんとは環境（気温・湿度等）を統一し、危険度の差は年齢補正のみで生じる。
+    // 品川駅近辺のオフィス街（港南）に勤務先があり、平日はそこで過ごしている。
     location: {
-      address: '東京都中央区日本橋室町三丁目',
-      latitude: 35.6832,
-      longitude: 139.7742,
+      address: '東京都港区港南二丁目（オフィス街）',
+      latitude: 35.6258,
+      longitude: 139.7386,
     },
     environment: { temperature: 34.6, humidity: 68, wbgt: 31.2, windSpeed: 2.1 },
     riskLevel: 'danger',
@@ -62,7 +61,6 @@ export const mockMembers: Member[] = [
     ],
     lastUpdated: '9:41',
     vitality: 100,
-    // 路上を移動中のため、お休みモードではない
     isResting: false,
   },
   {
@@ -71,15 +69,14 @@ export const mockMembers: Member[] = [
     age: 66,
     gender: '男性',
     birthDate: '1960年11月8日',
-    homeAddress: '東京都千代田区丸の内1-1-1',
+    homeAddress: '福島県福島市渡利',
     medicalNotes: '高血圧（降圧剤服用中）',
     photoUrl: memberPhotoUri(require('@/assets/images/members/ojiichan.png')),
-    // おばあちゃんと一緒に京橋一丁目にいる。同じ場所にいるおばあちゃんとは環境を統一し、
-    // 危険度の差は年齢・持病による補正のみで生じる。
+    // おばあちゃんと一緒に、福島市内の住宅地にある自宅で暮らしている。
     location: {
-      address: '東京都中央区京橋一丁目',
-      latitude: 35.6768,
-      longitude: 139.7736,
+      address: '福島県福島市渡利（自宅）',
+      latitude: 37.7502,
+      longitude: 140.4802,
     },
     environment: { temperature: 32.1, humidity: 60, wbgt: 28.4, windSpeed: 1.6 },
     riskLevel: 'warning',
@@ -104,12 +101,11 @@ export const mockMembers: Member[] = [
     notes: '小学校5年生',
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/oniichan.png')),
-    // お父さんと一緒に、コレド室町へ向かう途中で日本橋室町の路上にいる。
-    // 同じ場所にいるお父さんとは環境（気温・湿度等）を統一し、危険度の差は年齢補正のみで生じる。
+    // 妹と同じ、横浜市内の小学校に通っている。
     location: {
-      address: '東京都中央区日本橋室町三丁目',
-      latitude: 35.6828,
-      longitude: 139.7748,
+      address: '神奈川県横浜市港北区日吉本町（小学校）',
+      latitude: 35.5556,
+      longitude: 139.6467,
     },
     environment: { temperature: 34.6, humidity: 68, wbgt: 31.2, windSpeed: 2.1 },
     riskLevel: 'danger',
@@ -134,11 +130,11 @@ export const mockMembers: Member[] = [
     notes: '小学校2年生',
     homeAddress: '東京都千代田区丸の内1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/imouto.png')),
-    // お母さんと一緒に東京駅にいる
+    // お兄ちゃんと同じ、横浜市内の小学校に通っている。
     location: {
-      address: '東京都千代田区丸の内一丁目',
-      latitude: 35.6806,
-      longitude: 139.7666,
+      address: '神奈川県横浜市港北区日吉本町（小学校）',
+      latitude: 35.5554,
+      longitude: 139.6463,
     },
     environment: { temperature: 27.4, humidity: 50, wbgt: 23.9, windSpeed: 3.2 },
     riskLevel: 'safeLight',
@@ -160,14 +156,13 @@ export const mockMembers: Member[] = [
     age: 63,
     gender: '女性',
     birthDate: '1962年1月30日',
-    homeAddress: '東京都千代田区丸の内1-1-1',
+    homeAddress: '福島県福島市渡利',
     photoUrl: memberPhotoUri(require('@/assets/images/members/obaachan.png')),
-    // おじいちゃんと一緒に京橋一丁目にいる。同じ場所にいるおじいちゃんとは環境を統一し、
-    // 危険度の差は年齢による補正のみで生じる。
+    // おじいちゃんと一緒に、福島市内の住宅地にある自宅で暮らしている。
     location: {
-      address: '東京都中央区京橋一丁目',
-      latitude: 35.6763,
-      longitude: 139.7729,
+      address: '福島県福島市渡利（自宅）',
+      latitude: 37.7498,
+      longitude: 140.4798,
     },
     environment: { temperature: 32.1, humidity: 60, wbgt: 28.4, windSpeed: 1.6 },
     riskLevel: 'warning',
@@ -207,7 +202,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-1',
     riskLevel: 'danger',
     changed: true,
-    location: '東京都中央区日本橋室町',
+    location: '東京都港区港南二丁目',
     time: '9:41',
     dateLabel: '今日',
     isRead: false,
@@ -217,7 +212,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-2',
     riskLevel: 'warning',
     changed: true,
-    location: '東京都中央区京橋一丁目',
+    location: '福島県福島市渡利',
     time: '8:15',
     dateLabel: '今日',
     isRead: false,
@@ -227,7 +222,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-3',
     riskLevel: 'safe',
     changed: false,
-    location: '東京都中央区日本橋室町',
+    location: '神奈川県横浜市港北区日吉本町',
     time: '7:50',
     dateLabel: '今日',
     isRead: true,
@@ -237,7 +232,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-4',
     riskLevel: 'safeLight',
     changed: false,
-    location: '東京都千代田区丸の内一丁目',
+    location: '神奈川県横浜市港北区日吉本町',
     time: '7:20',
     dateLabel: '今日',
     isRead: true,
@@ -247,7 +242,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-1',
     riskLevel: 'warning',
     changed: true,
-    location: '東京都中央区日本橋室町',
+    location: '東京都港区港南二丁目',
     time: '18:30',
     dateLabel: '昨日',
     isRead: true,
@@ -257,7 +252,7 @@ export const mockNotifications: NotificationItem[] = [
     memberId: 'member-4',
     riskLevel: 'safeLight',
     changed: false,
-    location: '東京都千代田区丸の内一丁目',
+    location: '神奈川県横浜市港北区日吉本町',
     time: '18:00',
     dateLabel: '昨日',
     isRead: true,

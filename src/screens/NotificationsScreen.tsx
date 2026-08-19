@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Filter, MoreVertical, Calendar } from 'lucide-react-native';
 import { Member, NotificationItem, RiskLevel } from '../types';
 import { RISK_CONFIG } from '../constants/riskConfig';
@@ -208,14 +208,15 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
   headerTitle: {
-    fontSize: 17,
+    flex: 1,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
+    textAlign: 'center',
   },
   filterRow: {
     flexDirection: 'row',

@@ -51,7 +51,7 @@ export default function MemberDetailRoute() {
       // Web版はページ再読み込み後にrouter.back()が機能しないことがあるため、
       // 確実に遷移できるよう戻り先を明示してreplaceする
       onBack={() => router.replace(HOME_HREF)}
-      onOpenMap={() => router.push('/map')}
+      onOpenMap={() => router.push({ pathname: '/map', params: { focusMemberId: member.id } })}
     />
   );
 }

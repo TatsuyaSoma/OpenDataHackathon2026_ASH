@@ -26,11 +26,13 @@ export const MapSpotLegendBar: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     backgroundColor: colors.cardBackground,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
+    rowGap: spacing.sm,
+    columnGap: spacing.md,
   },
   item: {
     flexDirection: 'row',

@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, LayoutChangeEvent } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar, LayoutChangeEvent, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
-import { BedDouble } from 'lucide-react-native';
-import { Member } from '../types';
+import { BedDouble, LocateFixed } from 'lucide-react-native';
+import { MapSpot, Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
 import { mockMapSpots } from '../data/mockData';
 import { useMembers } from '../context/MembersContext';
@@ -40,6 +40,9 @@ const WBGT_TILE_REGION = {
 
 interface Props {
   onOpenMemberDetail?: (member: Member) => void;
+  // 指定時、マウント時（または値が変わるたび）にこのメンバーの位置へパン位置をジャンプさせる。
+  // ホーム画面のメンバーカードから「位置を見る」で遷移してきた場合に使う。
+  focusMemberId?: string;
 }
 
 // 背景画像・ピンの座標系を画面（ビューポート）よりひとまわり大きく持たせ、ドラッグして見回せるようにする倍率
@@ -74,6 +77,18 @@ const clampPanOffset = (offset: Offset, viewport: Size): Offset => {
   };
 };
 
+// 指定した地点（本人がいない場合はマップ中央）が画面中央に来るパン位置を、決まったズーム値(MAP_ZOOM)で算出する
+const computeCenteredPanOffset = (viewport: Size, target?: { latitude: number; longitude: number }): Offset => {
+  const centerNormalized = target ? projectToMap(target.latitude, target.longitude) : { x: 0.5, y: 0.5 };
+  return clampPanOffset(
+    {
+      x: viewport.width / 2 - centerNormalized.x * viewport.width * MAP_ZOOM,
+      y: viewport.height / 2 - centerNormalized.y * viewport.height * MAP_ZOOM,
+    },
+    viewport
+  );
+};
+
 // 正規化座標（0〜1）を、現在のパン位置を反映したビューポート内の表示位置に変換する。
 // 範囲外に出た場合は余白ぶん内側にクランプし、実際の位置への方向を添える。
 const toScreenPosition = (
@@ -101,7 +116,7 @@ const toScreenPosition = (
   };
 };
 
-export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
+export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }) => {
   const { members } = useMembers();
   // 環境省WBGT実況値のうち、この地図が表示するエリアに最も近い地点の値（参考値）
   const { data: nearestWbgt } = useNearestWbgt(MAP_CENTER.latitude, MAP_CENTER.longitude);
@@ -114,6 +129,11 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
   const [cafeEnabled, setCafeEnabled] = useState(true);
   const [waterEnabled, setWaterEnabled] = useState(true);
   const [disasterWaterEnabled, setDisasterWaterEnabled] = useState(true);
+  // タップして種別・名称のふきだしを表示中のスポット。もう一度同じピンをタップすると閉じる。
+  const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const handleSpotPress = useCallback((spot: MapSpot) => {
+    setSelectedSpotId((current) => (current === spot.id ? null : spot.id));
+  }, []);
 
   // マップのドラッグ操作。表示は倍率MAP_ZOOM分だけビューポートより大きく、ドラッグして見回せる。
   // ドラッグの実処理はreact-native-gesture-handlerのGesture.Panで行う（PanResponderよりWeb上での
@@ -138,22 +158,47 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
 
     // 初期表示は自分（本人）が画面中央に来るようにする
     const selfMember = members.find((member) => member.isSelf);
-    const centerNormalized = selfMember
-      ? projectToMap(selfMember.location.latitude, selfMember.location.longitude)
-      : { x: 0.5, y: 0.5 };
-    const centered = clampPanOffset(
-      {
-        x: width / 2 - centerNormalized.x * width * MAP_ZOOM,
-        y: height / 2 - centerNormalized.y * height * MAP_ZOOM,
-      },
-      nextViewport
-    );
+    const centered = computeCenteredPanOffset(nextViewport, selfMember?.location);
     savedPanX.value = centered.x;
     savedPanY.value = centered.y;
     currentPanX.value = centered.x;
     currentPanY.value = centered.y;
     setPanOffset(centered);
   };
+
+  // 指定した位置（本人の登録位置、または任意のメンバーの位置）が画面中央に来るよう、
+  // 決まったズーム値(MAP_ZOOM)でパン位置をジャンプさせる。
+  const focusOnLocation = useCallback(
+    (location?: { latitude: number; longitude: number }) => {
+      const centered = computeCenteredPanOffset(viewportSize, location);
+      savedPanX.value = centered.x;
+      savedPanY.value = centered.y;
+      currentPanX.value = centered.x;
+      currentPanY.value = centered.y;
+      setPanOffset(centered);
+    },
+    [viewportSize, savedPanX, savedPanY, currentPanX, currentPanY]
+  );
+
+  // 現在地（本人の登録位置）に、決まったズーム値(MAP_ZOOM)でパン位置を戻す
+  const handleRecenter = useCallback(() => {
+    const selfMember = members.find((member) => member.isSelf);
+    focusOnLocation(selfMember?.location);
+  }, [members, focusOnLocation]);
+
+  // 画面端の矢印バッジのタップ、およびホーム画面からの「位置を見る」遷移の両方で使う。
+  const handleFocusMember = useCallback(
+    (member: Member) => {
+      focusOnLocation(member.location);
+    },
+    [focusOnLocation]
+  );
+
+  useEffect(() => {
+    if (!focusMemberId) return;
+    const target = members.find((member) => member.id === focusMemberId);
+    if (target) handleFocusMember(target);
+  }, [focusMemberId, members, handleFocusMember]);
 
   const panGesture = Gesture.Pan()
     .minDistance(3)
@@ -212,7 +257,7 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
 
   if (members.length === 0) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
         <View style={styles.header}>
           <Text style={styles.headerTitle}>マップ</Text>
@@ -255,6 +300,8 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
                 x={spotPositions[spot.id].x}
                 y={spotPositions[spot.id].y}
                 offscreen={spotPositions[spot.id].offscreenDirectionDeg !== undefined}
+                selected={selectedSpotId === spot.id}
+                onPress={handleSpotPress}
               />
             ))}
 
@@ -267,6 +314,7 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
                   y={memberPositions[member.id].y}
                   onPress={onOpenMemberDetail}
                   offscreenDirectionDeg={memberPositions[member.id].offscreenDirectionDeg}
+                  onPressOffscreenIndicator={handleFocusMember}
                 />
               ))}
           </View>
@@ -276,20 +324,22 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
           <MapLegendCard />
         </View>
 
-        {hasResting && (
-          <View style={styles.restingPill}>
-            <BedDouble size={14} color={colors.primary} />
-            <Text style={styles.restingPillText}>お休み中のメンバーあり</Text>
-          </View>
-        )}
-
         {heatmapEnabled && nearestWbgt && (
           <View style={styles.wbgtBadgeWrapper}>
             <MapWbgtReferenceBadge data={nearestWbgt} />
           </View>
         )}
 
-        <View style={styles.controlsWrapper}>
+        <View style={styles.rightColumn} pointerEvents="box-none">
+          {members.some((member) => member.isSelf) && (
+            <TouchableOpacity
+              style={styles.recenterButton}
+              activeOpacity={0.8}
+              onPress={handleRecenter}>
+              <LocateFixed size={18} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+
           <MapDisplayControls
             heatmapEnabled={heatmapEnabled}
             onToggleHeatmap={setHeatmapEnabled}
@@ -306,6 +356,13 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
             disasterWaterEnabled={disasterWaterEnabled}
             onToggleDisasterWater={setDisasterWaterEnabled}
           />
+
+          {hasResting && (
+            <View style={styles.restingPill}>
+              <BedDouble size={14} color={colors.primary} />
+              <Text style={styles.restingPillText}>お休み中のメンバーあり</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -329,6 +386,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
+    textAlign: 'center',
   },
   emptyState: {
     flex: 1,
@@ -369,10 +427,18 @@ const styles = StyleSheet.create({
     bottom: spacing.md,
     left: spacing.md,
   },
-  restingPill: {
+  // 右上に「現在地ボタン→表示設定→お休み中バナー」を縦に積むコンテナ。
+  // 個別にposition:absoluteで配置すると、凡例カードや実況バッジと横方向に衝突しやすいため、
+  // 1つの縦積みレイアウトにまとめて重なりを防いでいる。
+  rightColumn: {
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    maxWidth: '60%',
+  },
+  restingPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBackground,
@@ -387,11 +453,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
     marginLeft: 6,
+    flexShrink: 1,
   },
-  controlsWrapper: {
-    position: 'absolute',
-    top: 64,
-    right: spacing.md,
+  recenterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   bottomLegend: {
     paddingHorizontal: spacing.lg,

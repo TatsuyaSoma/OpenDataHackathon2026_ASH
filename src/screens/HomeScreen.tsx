@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, FlatList, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Member } from '../types';
 import { isHighRisk } from '../constants/riskConfig';
 import { colors, spacing } from '../constants/theme';
@@ -13,9 +14,15 @@ interface Props {
   // カード詳細画面への遷移をここで受け取る（react-navigation導入後は navigation.navigate に置き換え）
   onOpenMemberDetail?: (member: Member) => void;
   onOpenNotifications?: () => void;
+  // メンバーカードの位置情報部分をタップした際、そのメンバーを中心にマップ画面を開く
+  onPressMemberLocation?: (member: Member) => void;
 }
 
-export const HomeScreen: React.FC<Props> = ({ onOpenMemberDetail, onOpenNotifications }) => {
+export const HomeScreen: React.FC<Props> = ({
+  onOpenMemberDetail,
+  onOpenNotifications,
+  onPressMemberLocation,
+}) => {
   const { members, toggleResting } = useMembers();
   const selfMember = members.find((m) => m.isSelf);
 
@@ -26,12 +33,12 @@ export const HomeScreen: React.FC<Props> = ({ onOpenMemberDetail, onOpenNotifica
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
       {/* ヘッダー */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>家族の熱中症見守り</Text>
+        <Text style={styles.headerTitle}>熱中症見守りアプリ「ひといき」</Text>
       </View>
 
       <FlatList
@@ -45,7 +52,11 @@ export const HomeScreen: React.FC<Props> = ({ onOpenMemberDetail, onOpenNotifica
           ) : null
         }
         renderItem={({ item }) => (
-          <MemberCard member={item} onPress={(m) => onOpenMemberDetail?.(m)} />
+          <MemberCard
+            member={item}
+            onPress={(m) => onOpenMemberDetail?.(m)}
+            onPressLocation={onPressMemberLocation}
+          />
         )}
       />
 
@@ -78,6 +89,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
+    textAlign: 'center',
   },
   list: {
     flex: 1,

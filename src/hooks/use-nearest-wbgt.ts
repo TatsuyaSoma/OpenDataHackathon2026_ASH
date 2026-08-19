@@ -3,12 +3,35 @@ import { fetchNearestTokyoWbgt, NearestTokyoWbgt } from '../services/envWbgt';
 
 export type NearestWbgtStatus = 'loading' | 'success' | 'error';
 
-// APIへの過剰な連打を避けるため、アプリ起動中は結果をキャッシュして使い回す
-// （1時間おきの更新データのため、頻繁な再取得は不要）
+// 環境省WBGT実況値は1時間おきに更新される。この間隔でキャッシュを破棄して再取得することで、
+// APIへの過剰な連打を避けつつ、地図を開いたままにしていても実況値が古いまま固定されないようにする。
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
 let cache: Promise<NearestTokyoWbgt | null> | null = null;
+let cachedAt = 0;
+let cachedLat: number | null = null;
+let cachedLng: number | null = null;
+
+const getNearest = (targetLat: number, targetLng: number): Promise<NearestTokyoWbgt | null> => {
+  const isStale =
+    !cache || Date.now() - cachedAt > CACHE_TTL_MS || cachedLat !== targetLat || cachedLng !== targetLng;
+  if (isStale) {
+    cachedAt = Date.now();
+    cachedLat = targetLat;
+    cachedLng = targetLng;
+    // 取得に失敗した場合は次回の再試行で拾えるよう、キャッシュを空にしておく
+    cache = fetchNearestTokyoWbgt(targetLat, targetLng).catch((error) => {
+      cache = null;
+      throw error;
+    });
+  }
+  return cache!;
+};
 
 /**
  * 地図の表示範囲中心に最も近い、環境省WBGT実況値配信地点の直近値を取得するフック。
+ * マウント中は`REFRESH_INTERVAL_MS`おきに自動で再取得し、実況値の更新に追従する。
  */
 export const useNearestWbgt = (targetLat: number, targetLng: number) => {
   const [status, setStatus] = useState<NearestWbgtStatus>('loading');
@@ -16,30 +39,26 @@ export const useNearestWbgt = (targetLat: number, targetLng: number) => {
 
   useEffect(() => {
     let cancelled = false;
-    setStatus('loading');
 
-    if (!cache) {
-      // 取得に失敗した場合は次回マウント時に再試行できるよう、キャッシュを空にしておく
-      // （失敗したPromiseをキャッシュし続けると、以降ずっとエラー状態のままになってしまうため）
-      cache = fetchNearestTokyoWbgt(targetLat, targetLng).catch((error) => {
-        cache = null;
-        throw error;
-      });
-    }
+    const load = () => {
+      getNearest(targetLat, targetLng)
+        .then((result) => {
+          if (cancelled) return;
+          setData(result);
+          setStatus('success');
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setStatus('error');
+        });
+    };
 
-    cache
-      .then((result) => {
-        if (cancelled) return;
-        setData(result);
-        setStatus('success');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setStatus('error');
-      });
+    load();
+    const intervalId = setInterval(load, REFRESH_INTERVAL_MS);
 
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [targetLat, targetLng]);
 

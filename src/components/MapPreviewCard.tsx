@@ -1,23 +1,32 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { AppleMaps, GoogleMaps } from 'expo-maps';
 import { MapPin as MapPinIcon, Map } from 'lucide-react-native';
 import { LocationInfo } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
-import { MapBackgroundLayer } from './MapBackgroundLayer';
 
 interface Props {
   location: LocationInfo;
   onPressOpenMap: () => void;
 }
 
+// プレビュー用の地図のズーム。ピンとその周辺の地名が分かる程度の大きさの目安値
+const PREVIEW_ZOOM = 14;
+
 /**
  * 現在地のプレビューカード。
- * 背景はモックとして実際のGoogleマップのスクリーンショット画像
- * （MapBackgroundLayer、東京駅・丸の内付近）を敷いている。ピンの位置は固定表示で、
- * 実際の緯度経度には連動していない。実際の地図タイル連携は expo-maps 等への置き換えが必要
- * （詳細は google-maps-integration.md）。
+ * iOS/Androidではexpo-mapsの実地図をそのメンバーの位置で小さく表示する（Webは非対応のため
+ * プレースホルダーのまま）。カード内はスクロールリストの中に埋め込まれているため、地図自体の
+ * パン・ズーム操作はさせず（AndroidはuiSettingsで無効化、iOSは無効化オプションが無いため、
+ * 透明なタッチレイヤーで地図へのジェスチャーそのものを到達させない）、タップしたら実際の
+ * マップ画面（そのメンバーの位置を中心に表示）を開く導線にしている。
  */
 export const MapPreviewCard: React.FC<Props> = ({ location, onPressOpenMap }) => {
+  const cameraPosition = {
+    coordinates: { latitude: location.latitude, longitude: location.longitude },
+    zoom: PREVIEW_ZOOM,
+  };
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -29,15 +38,33 @@ export const MapPreviewCard: React.FC<Props> = ({ location, onPressOpenMap }) =>
       </View>
 
       <View style={styles.mapPlaceholder}>
-        <MapBackgroundLayer />
+        {Platform.OS === 'ios' ? (
+          <AppleMaps.View style={StyleSheet.absoluteFill} cameraPosition={cameraPosition} />
+        ) : Platform.OS === 'android' ? (
+          <GoogleMaps.View
+            style={StyleSheet.absoluteFill}
+            cameraPosition={cameraPosition}
+            uiSettings={{
+              scrollGesturesEnabled: false,
+              zoomGesturesEnabled: false,
+              rotationGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+              zoomControlsEnabled: false,
+              compassEnabled: false,
+              myLocationButtonEnabled: false,
+            }}
+          />
+        ) : (
+          <View style={styles.pinWrapper}>
+            <View style={styles.pinPulse} />
+            <MapPinIcon size={28} color="#E53935" fill="#E53935" />
+          </View>
+        )}
 
-        <Text style={[styles.placeLabel, { top: 10, left: 16 }]}>丸の内北口</Text>
-        <Text style={[styles.placeLabel, { bottom: 14, right: 18 }]}>KITTE</Text>
-
-        <View style={styles.pinWrapper}>
-          <View style={styles.pinPulse} />
-          <MapPinIcon size={28} color="#E53935" fill="#E53935" />
-        </View>
+        {/* ネイティブ地図の手前を覆う透明なタッチレイヤー。iOSのAppleMaps.Viewはジェスチャーを
+            無効化するオプションが無いため、タップ自体をここで先取りすることで、カード内の地図が
+            スクロールリスト内でパン・ズームされてしまうのを防ぎつつ、タップでマップ画面を開けるようにする。 */}
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={0.85} onPress={onPressOpenMap} />
 
         <Text style={styles.addressCaption} numberOfLines={1}>
           {location.address}
@@ -89,16 +116,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  placeLabel: {
-    position: 'absolute',
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#5B6470',
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
+    backgroundColor: colors.background,
   },
   pinWrapper: {
     alignItems: 'center',

@@ -1,9 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, Platform, LayoutChangeEvent } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar, Platform, LayoutChangeEvent, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppleMaps, CameraMoveEvent, GoogleMaps } from 'expo-maps';
-import { BedDouble } from 'lucide-react-native';
-import { Member } from '../types';
+import { BedDouble, LocateFixed } from 'lucide-react-native';
+import { MapSpot, Member } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
 import { mockMapSpots } from '../data/mockData';
 import { useMembers } from '../context/MembersContext';
@@ -42,6 +42,9 @@ const MAP_CENTER = {
 
 interface Props {
   onOpenMemberDetail?: (member: Member) => void;
+  // 指定時、マウント時（または値が変わるたび）にこのメンバーの位置へカメラをジャンプさせる。
+  // ホーム画面のメンバーカードから「位置を見る」で遷移してきた場合に使う。
+  focusMemberId?: string;
 }
 
 // ピンを画面端にクランプする際、アイコンが枠に隠れて見切れないようにする余白
@@ -85,7 +88,7 @@ const toScreenPosition = (normalized: { x: number; y: number }, viewport: Size, 
 // （expo-mapsのcameraPositionは初期値のみで、以降はネイティブ地図が自身でパン/ズームを処理する）。
 const INITIAL_ZOOM = 15;
 
-export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
+export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }) => {
   const { members } = useMembers();
   // 環境省WBGT実況値のうち、この地図が表示するエリアに最も近い地点の値（参考値）
   const { data: nearestWbgt } = useNearestWbgt(MAP_CENTER.latitude, MAP_CENTER.longitude);
@@ -103,6 +106,11 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
   // 現在の地図の表示範囲（中心座標＋緯度経度スパン）。onCameraMoveは初回マウント時にも
   // 一度発火するため、地図が読み込まれ次第この値が入る。
   const [region, setRegion] = useState<MapRegion | null>(null);
+  // タップして種別・名称のふきだしを表示中のスポット。もう一度同じピンをタップすると閉じる。
+  const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const handleSpotPress = useCallback((spot: MapSpot) => {
+    setSelectedSpotId((current) => (current === spot.id ? null : spot.id));
+  }, []);
 
   const handleMapAreaLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -122,6 +130,46 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
 
   const hasResting = members.some((m) => m.isResting);
   const selfMember = members.find((m) => m.isSelf);
+
+  const mapRef = useRef<GoogleMaps.MapView | AppleMaps.MapView | null>(null);
+
+  // 指定した緯度経度へ、決まったズーム値でカメラを移動させる
+  const focusCamera = useCallback((latitude: number, longitude: number) => {
+    mapRef.current?.setCameraPosition({ coordinates: { latitude, longitude }, zoom: INITIAL_ZOOM });
+  }, []);
+
+  // 現在地（本人の登録位置）に、決まったズーム値でカメラを戻す
+  const handleRecenter = useCallback(() => {
+    if (!selfMember) return;
+    focusCamera(selfMember.location.latitude, selfMember.location.longitude);
+  }, [selfMember, focusCamera]);
+
+  // 指定したメンバーの位置へ、決まったズーム値でカメラをジャンプさせる。
+  // 画面端の矢印バッジのタップ、およびホーム画面からの「位置を見る」遷移の両方で使う。
+  const handleFocusMember = useCallback(
+    (member: Member) => {
+      focusCamera(member.location.latitude, member.location.longitude);
+    },
+    [focusCamera]
+  );
+
+  // focusMemberIdが変わった時にカメラをジャンプさせる（画面端の矢印バッジと同じ経路）。
+  // ただし、マウント直後の初期値に対しては何もしない。マウント時点のfocusMemberIdは
+  // すでにinitialCameraPositionで反映済みのため、ここで改めてsetCameraPositionを呼ぶと、
+  // ネイティブ地図の初期化がまだ終わっていない（cameraStateが未セット）タイミングと重なり
+  // Promiseのrejectで赤いエラー表示が出てしまう。以降、ユーザーがマップ画面を開いたまま
+  // 別のメンバーの位置を指定してきた場合（＝地図はすでに初期化済み）だけ、ここでジャンプする。
+  // さらに、上記の判定をすり抜けて画面遷移直後にここへ到達した場合の保険として、
+  // 少し遅延させてから呼び出す（ネイティブ地図が初期化を終える猶予を与える）。
+  const handledFocusMemberIdRef = useRef<string | undefined>(focusMemberId);
+  useEffect(() => {
+    if (!focusMemberId || handledFocusMemberIdRef.current === focusMemberId) return;
+    handledFocusMemberIdRef.current = focusMemberId;
+    const target = members.find((member) => member.id === focusMemberId);
+    if (!target) return;
+    const timeoutId = setTimeout(() => handleFocusMember(target), 400);
+    return () => clearTimeout(timeoutId);
+  }, [focusMemberId, members, handleFocusMember]);
 
   const memberPositions = useMemo(() => {
     if (!region) return {};
@@ -165,7 +213,7 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
 
   if (members.length === 0) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
         <View style={styles.header}>
           <Text style={styles.headerTitle}>マップ</Text>
@@ -177,18 +225,22 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
     );
   }
 
-  // 初期カメラ位置は本人（isSelf）を中心にする。cameraPositionは初期値のみに使われ、
-  // 以降のパン・ズーム操作はネイティブ地図が自前で処理する（再レンダーで位置が戻ることはない）。
+  // 初期カメラ位置は、focusMemberIdが指定されていればそのメンバー、なければ本人（isSelf）を中心にする。
+  // cameraPositionは初期値のみに使われ、以降のパン・ズーム操作はネイティブ地図が自前で処理する
+  // （再レンダーで位置が戻ることはない）。focusMemberIdをここでも考慮しておくことで、
+  // ネイティブ地図の初期化前にhandleFocusMemberの命令的な呼び出しが間に合わなくても、
+  // 初期表示の時点で正しい位置が表示される。
+  const focusMember = focusMemberId ? members.find((member) => member.id === focusMemberId) : undefined;
   const initialCameraPosition = {
     coordinates: {
-      latitude: selfMember?.location.latitude ?? MAP_CENTER.latitude,
-      longitude: selfMember?.location.longitude ?? MAP_CENTER.longitude,
+      latitude: focusMember?.location.latitude ?? selfMember?.location.latitude ?? MAP_CENTER.latitude,
+      longitude: focusMember?.location.longitude ?? selfMember?.location.longitude ?? MAP_CENTER.longitude,
     },
     zoom: INITIAL_ZOOM,
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
       <View style={styles.header}>
@@ -199,12 +251,14 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
         <View style={styles.mapBackground}>
           {Platform.OS === 'ios' ? (
             <AppleMaps.View
+              ref={mapRef as React.Ref<AppleMaps.MapView>}
               style={StyleSheet.absoluteFill}
               cameraPosition={initialCameraPosition}
               onCameraMove={handleCameraMove}
             />
           ) : (
             <GoogleMaps.View
+              ref={mapRef as React.Ref<GoogleMaps.MapView>}
               style={StyleSheet.absoluteFill}
               cameraPosition={initialCameraPosition}
               onCameraMove={handleCameraMove}
@@ -221,6 +275,8 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
                 x={spotPositions[spot.id].x}
                 y={spotPositions[spot.id].y}
                 offscreen={spotPositions[spot.id].offscreenDirectionDeg !== undefined}
+                selected={selectedSpotId === spot.id}
+                onPress={handleSpotPress}
               />
             ))}
 
@@ -234,6 +290,7 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
                 y={memberPositions[member.id].y}
                 onPress={onOpenMemberDetail}
                 offscreenDirectionDeg={memberPositions[member.id].offscreenDirectionDeg}
+                onPressOffscreenIndicator={handleFocusMember}
               />
             ))}
         </View>
@@ -244,20 +301,22 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
           </View>
         )}
 
-        {hasResting && (
-          <View style={styles.restingPill}>
-            <BedDouble size={14} color={colors.primary} />
-            <Text style={styles.restingPillText}>お休み中のメンバーあり</Text>
-          </View>
-        )}
-
         {heatmapEnabled && nearestWbgt && (
           <View style={styles.wbgtBadgeWrapper}>
             <MapWbgtReferenceBadge data={nearestWbgt} />
           </View>
         )}
 
-        <View style={styles.controlsWrapper}>
+        <View style={styles.rightColumn} pointerEvents="box-none">
+          {selfMember && (
+            <TouchableOpacity
+              style={styles.recenterButton}
+              activeOpacity={0.8}
+              onPress={handleRecenter}>
+              <LocateFixed size={18} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+
           <MapDisplayControls
             heatmapEnabled={heatmapEnabled}
             onToggleHeatmap={setHeatmapEnabled}
@@ -274,6 +333,13 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail }) => {
             disasterWaterEnabled={disasterWaterEnabled}
             onToggleDisasterWater={setDisasterWaterEnabled}
           />
+
+          {hasResting && (
+            <View style={styles.restingPill}>
+              <BedDouble size={14} color={colors.primary} />
+              <Text style={styles.restingPillText}>お休み中のメンバーあり</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -297,6 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
+    textAlign: 'center',
   },
   emptyState: {
     flex: 1,
@@ -332,10 +399,18 @@ const styles = StyleSheet.create({
     bottom: spacing.md,
     left: spacing.md,
   },
-  restingPill: {
+  // 右上に「現在地ボタン→表示設定→お休み中バナー」を縦に積むコンテナ。
+  // 個別にposition:absoluteで配置すると、凡例カードや実況バッジと横方向に衝突しやすいため、
+  // 1つの縦積みレイアウトにまとめて重なりを防いでいる。
+  rightColumn: {
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    maxWidth: '60%',
+  },
+  restingPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBackground,
@@ -350,11 +425,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
     marginLeft: 6,
+    flexShrink: 1,
   },
-  controlsWrapper: {
-    position: 'absolute',
-    top: 64,
-    right: spacing.md,
+  recenterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   bottomLegend: {
     paddingHorizontal: spacing.lg,

@@ -12,13 +12,15 @@ interface Props {
   member: Member;
   onPress: (member: Member) => void;
   showChevron?: boolean; // 設定画面のメンバ管理など「編集へ進む」導線で使う矢印表示
+  // 指定時、位置情報の行をタップ可能にし、そのメンバーを中心にマップ画面を開く導線にする
+  onPressLocation?: (member: Member) => void;
 }
 
 /**
  * ホーム画面に並ぶメンバー1人分のカード。
  * 危険度が「危険」「非常に危険」の場合は枠を赤くハイライトする。
  */
-export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron }) => {
+export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron, onPressLocation }) => {
   const highlighted = isHighRisk(member.riskLevel) && !member.isResting;
   // 画像URLが無い/読み込み失敗した場合はイニシャルアイコンにフォールバックする（レビュー指摘反映）
   const [imageFailed, setImageFailed] = useState(false);
@@ -55,13 +57,19 @@ export const MemberCard: React.FC<Props> = ({ member, onPress, showChevron }) =>
         <Text style={styles.subInfo}>
           {member.age}歳　{member.gender}
         </Text>
-        <View style={styles.locationRow}>
-          <MapPin size={14} color={colors.textSecondary} />
+        <TouchableOpacity
+          style={styles.locationRow}
+          disabled={!onPressLocation}
+          hitSlop={6}
+          onPress={() => onPressLocation?.(member)}>
+          <MapPin size={14} color={onPressLocation ? colors.primary : colors.textSecondary} />
           {/* member.location が未取得の間にレンダリングされてもクラッシュしないよう防御（レビュー指摘反映） */}
-          <Text style={styles.locationText} numberOfLines={1}>
+          <Text
+            style={[styles.locationText, onPressLocation && styles.locationTextPressable]}
+            numberOfLines={1}>
             {member.location?.address ?? '位置情報を取得中…'}
           </Text>
-        </View>
+        </TouchableOpacity>
         <Text style={styles.updatedText}>最終更新：{member.lastUpdated ?? '-'}</Text>
       </View>
 
@@ -154,6 +162,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 4,
     flexShrink: 1,
+  },
+  locationTextPressable: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   updatedText: {
     fontSize: 12,
