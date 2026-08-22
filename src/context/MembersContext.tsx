@@ -280,7 +280,9 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
           : `${member.name}の体力ゲージが減ってきています。水分補給を促してあげましょう。`;
 
       requestNotificationPermission().then((granted) => {
-        if (granted) sendVitalityReminderNotification(message);
+        if (granted) {
+          sendVitalityReminderNotification(message, member.isSelf ? { destination: 'missions' } : undefined);
+        }
       });
 
       addNotification({
@@ -309,7 +311,7 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (isCurrentlyHighRisk && !previousSelfHighRiskRef.current) {
       const message = `${self.name}の体力ゲージが減ってきています。水分補給や涼しい場所での休憩を心がけてください。`;
       requestNotificationPermission().then((granted) => {
-        if (granted) sendDangerNotification(message);
+        if (granted) sendDangerNotification(message, { destination: 'missions' });
       });
       addNotification({
         id: `danger-${self.id}-${Date.now()}`,

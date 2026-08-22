@@ -1,13 +1,15 @@
-import { Tabs, TabList, TabSlot, TabTrigger } from 'expo-router/ui';
 import type { TabTriggerSlotProps } from 'expo-router/ui';
-import { Bell, Home, ListChecks, Map as MapIcon, Settings as SettingsIcon } from 'lucide-react-native';
+import { TabList, Tabs, TabSlot, TabTrigger } from 'expo-router/ui';
 import type { LucideIcon } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { Bell, Home, ListChecks, Map as MapIcon, Settings as SettingsIcon } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MissionListScreen } from '@/screens/MissionListScreen';
 import { colors, spacing } from '@/constants/theme';
+import { useMembers } from '@/context/MembersContext';
+import { computeMissionStates } from '@/logic/missions';
+import { MissionListScreen } from '@/screens/MissionListScreen';
 
 type TabButtonProps = TabTriggerSlotProps & {
   icon: LucideIcon;
@@ -40,7 +42,31 @@ function TabButton({ icon: Icon, children, isFocused, ...props }: TabButtonProps
  */
 export default function AppTabs() {
   const insets = useSafeAreaInsets();
+  const { members } = useMembers();
   const [missionOpen, setMissionOpen] = useState(false);
+  const selfMember = members.find((member) => member.isSelf);
+  const hasAvailableMission = selfMember
+    ? computeMissionStates(selfMember.missionCompletions, selfMember.isResting).some(
+        (state) => state.available
+      )
+    : false;
+
+  useEffect(() => {
+    let subscription: { remove: () => void } | undefined;
+    try {
+      const notifications = require('expo-notifications') as typeof import('expo-notifications');
+      const openMissionFromResponse = (response: import('expo-notifications').NotificationResponse | null) => {
+        if (!response) return;
+        const data = response.notification.request.content.data as { destination?: string } | undefined;
+        if (data?.destination === 'missions') setMissionOpen(true);
+      };
+      subscription = notifications.addNotificationResponseReceivedListener(openMissionFromResponse);
+      notifications.getLastNotificationResponseAsync().then(openMissionFromResponse).catch(() => undefined);
+    } catch (error) {
+      // WebやExpo Goで通知モジュールが利用できない場合は、アプリの表示を継続する
+    }
+    return () => subscription?.remove();
+  }, []);
 
   return (
     <Tabs style={styles.root}>
@@ -56,7 +82,10 @@ export default function AppTabs() {
           </TabTrigger>
 
           <Pressable style={styles.tabButton} onPress={() => setMissionOpen(true)}>
-            <ListChecks size={22} color={missionOpen ? colors.primary : colors.textSecondary} />
+            <View style={styles.missionIconWrapper}>
+              <ListChecks size={22} color={missionOpen ? colors.primary : colors.textSecondary} />
+              {hasAvailableMission && <View style={styles.missionAvailableDot} />}
+            </View>
             <Text
               style={[styles.tabLabel, { color: missionOpen ? colors.primary : colors.textSecondary }]}
               numberOfLines={1}>
@@ -101,5 +130,17 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     marginTop: 2,
+  },
+  missionIconWrapper: {
+    position: 'relative',
+  },
+  missionAvailableDot: {
+    position: 'absolute',
+    top: -3,
+    right: -5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
 });

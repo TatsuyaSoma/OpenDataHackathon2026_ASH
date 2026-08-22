@@ -52,13 +52,17 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
  * 本人の体力ゲージが減ってきたことを端末のローカル通知で知らせる。
  * サーバーを介さないため、他メンバーの端末には届かない（バックエンド未実装のため対応不可）。
  */
-export const sendDangerNotification = async (message: string): Promise<void> => {
+export const sendDangerNotification = async (
+  message: string,
+  data?: Record<string, string>
+): Promise<void> => {
   if (!Notifications) return;
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '体力ゲージが減っています',
         body: message,
+        data,
       },
       trigger: null,
     });
@@ -70,13 +74,17 @@ export const sendDangerNotification = async (message: string): Promise<void> => 
 /**
  * 本人の体力ゲージが一定値を下回るたびに、水分補給や休憩を促す端末のローカル通知を送る。
  */
-export const sendVitalityReminderNotification = async (message: string): Promise<void> => {
+export const sendVitalityReminderNotification = async (
+  message: string,
+  data?: Record<string, string>
+): Promise<void> => {
   if (!Notifications) return;
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '体力ゲージが減っています',
         body: message,
+        data,
       },
       trigger: null,
     });
