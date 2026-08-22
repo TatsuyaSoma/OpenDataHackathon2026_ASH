@@ -66,6 +66,7 @@ export const HomeScreen: React.FC<Props> = ({
             <RestStatusBanner
               restStartedAt={selfMember.restStartedAt}
               onPressRelease={() => toggleResting(selfMember.id)}
+              style={styles.restStatusBanner}
             />
           ) : (
             <RestModeBar onPressStart={() => toggleResting(selfMember.id)} />
@@ -100,7 +101,9 @@ const styles = StyleSheet.create({
   },
   restModeBarWrapper: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
     backgroundColor: colors.background,
+  },
+  restStatusBanner: {
+    marginBottom: 0,
   },
 });

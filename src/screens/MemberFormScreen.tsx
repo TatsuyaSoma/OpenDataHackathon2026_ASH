@@ -7,10 +7,10 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Calendar, Camera, FileText, Home, Mars, MapPinned, Plus, Save, Trash2, User } from 'lucide-react-native';
 import { Gender, Member } from '../types';

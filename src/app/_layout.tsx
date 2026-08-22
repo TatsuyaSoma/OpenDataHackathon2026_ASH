@@ -39,6 +39,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="member/[id]" />
                 <Stack.Screen name="member/new" />
+                <Stack.Screen name="member/reorder" />
               </Stack>
             </MembersProvider>
           </NotificationsProvider>

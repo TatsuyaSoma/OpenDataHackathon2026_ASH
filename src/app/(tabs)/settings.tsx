@@ -11,6 +11,7 @@ export default function SettingsRoute() {
       onEditMember={(member: Member) =>
         router.push({ pathname: '/member/new', params: { id: member.id } })
       }
+      onReorderMembers={() => router.push('/member/reorder')}
     />
   );
 }

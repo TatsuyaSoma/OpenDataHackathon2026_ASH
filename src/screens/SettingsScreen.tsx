@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Member } from '../types';
 import { colors, spacing } from '../constants/theme';
 import { showAlert } from '../utils/crossPlatformAlert';
@@ -13,12 +14,13 @@ import { AppSettingsSection } from '../components/AppSettingsSection';
 interface Props {
   onAddMember?: () => void; // メンバ登録画面への遷移（未指定時はモック案内を表示）
   onEditMember?: (member: Member) => void; // メンバ編集画面への遷移（未指定時はモック案内を表示）
+  onReorderMembers?: () => void; // 並び順変更画面への遷移（未指定時はモック案内を表示）
 }
 
 /**
  * 設定画面。メンバ管理／お休みモード／通知設定／アプリ設定のサブタブを持つ。
  */
-export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember }) => {
+export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember, onReorderMembers }) => {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('members');
   const { members, removeAllMembers, toggleResting } = useMembers();
 
@@ -38,8 +40,13 @@ export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember }) =
     }
   };
 
-  const handleReorderMembers = () =>
-    showAlert('並び順を変更', 'メンバーの並び替え機能は準備中です。');
+  const handleReorderMembers = () => {
+    if (onReorderMembers) {
+      onReorderMembers();
+    } else {
+      showAlert('並び順を変更', 'メンバーの並び替え機能は準備中です。');
+    }
+  };
 
   const handleBulkDelete = () => {
     showAlert(
@@ -53,7 +60,7 @@ export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember }) =
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
       <View style={styles.header}>

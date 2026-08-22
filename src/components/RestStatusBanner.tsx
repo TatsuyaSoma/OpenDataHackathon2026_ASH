@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
 import { BedDouble } from 'lucide-react-native';
 import { colors, spacing, radius } from '../constants/theme';
 
 interface Props {
   restStartedAt?: string;
   onPressRelease: () => void;
+  style?: StyleProp<ViewStyle>; // 表示先ごとに下マージンを打ち消す等の調整に使う
 }
 
 /**
@@ -13,9 +14,9 @@ interface Props {
  * ホーム画面の RestModeBar（設定用・青系）とは異なり、
  * こちらは「現在お休み中である」ことを示す表示用バナー（緑系）で、解除ボタンを持つ。
  */
-export const RestStatusBanner: React.FC<Props> = ({ restStartedAt, onPressRelease }) => {
+export const RestStatusBanner: React.FC<Props> = ({ restStartedAt, onPressRelease, style }) => {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <BedDouble size={22} color={colors.successText} style={styles.icon} />
       <View style={styles.textColumn}>
         <Text style={styles.title}>お休み中　（冷房が効いた部屋にいるよ）</Text>

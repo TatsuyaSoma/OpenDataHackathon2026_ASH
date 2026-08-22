@@ -22,6 +22,7 @@ interface MembersContextValue {
   updateMember: (member: Member) => void;
   removeMember: (id: string) => void;
   removeAllMembers: () => void;
+  reorderMembers: (orderedIds: string[]) => void;
   toggleResting: (id: string) => void;
   completeMission: (memberId: string, missionId: string) => void;
 }
@@ -120,6 +121,19 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const removeAllMembers = useCallback(() => {
     setMembers([]);
+  }, []);
+
+  // 設定画面「メンバの並び順を変更」からの並び替えを反映する。渡された順序に無いIDが
+  // 混ざっていた場合に備え、末尾に元の並びのまま残す（データ欠落を防ぐための保険）。
+  const reorderMembers = useCallback((orderedIds: string[]) => {
+    setMembers((prev) => {
+      const byId = new Map(prev.map((member) => [member.id, member]));
+      const reordered = orderedIds
+        .map((id) => byId.get(id))
+        .filter((member): member is Member => member !== undefined);
+      const remaining = prev.filter((member) => !orderedIds.includes(member.id));
+      return [...reordered, ...remaining];
+    });
   }, []);
 
   // お休みモードのON/OFFを切り替える。ミッションの達成記録とクールダウンは保持する。
@@ -319,6 +333,7 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updateMember,
       removeMember,
       removeAllMembers,
+      reorderMembers,
       toggleResting,
       completeMission,
     }),
@@ -329,6 +344,7 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updateMember,
       removeMember,
       removeAllMembers,
+      reorderMembers,
       toggleResting,
       completeMission,
     ]

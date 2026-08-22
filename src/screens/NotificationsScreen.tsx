@@ -8,10 +8,10 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Filter, MoreVertical, Calendar } from 'lucide-react-native';
+import { Filter, MoreVertical } from 'lucide-react-native';
 import { Member, NotificationItem, RiskLevel } from '../types';
 import { RISK_CONFIG } from '../constants/riskConfig';
-import { colors, spacing, radius } from '../constants/theme';
+import { colors, spacing } from '../constants/theme';
 import { showAlert } from '../utils/crossPlatformAlert';
 import { useMembers } from '../context/MembersContext';
 import { useNotifications } from '../context/NotificationsContext';
@@ -123,9 +123,7 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={resetFilters} hitSlop={8}>
-          <Filter size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>通知履歴</Text>
         <TouchableOpacity
           onPress={() => showAlert('メニュー', 'メニューは準備中です。')}
@@ -135,6 +133,9 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
       </View>
 
       <View style={styles.filterRow}>
+        <TouchableOpacity style={styles.filterIconButton} onPress={resetFilters} hitSlop={8}>
+          <Filter size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
         <NotificationFilterDropdown
           label={readLabel}
           active={openFilter === 'read'}
@@ -150,13 +151,6 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
           active={openFilter === 'member'}
           onPress={() => toggleFilter('member')}
         />
-        <TouchableOpacity
-          style={styles.periodChip}
-          activeOpacity={0.7}
-          onPress={() => showAlert('表示期間', '通知履歴の表示期間は過去1か月間固定です。')}>
-          <Calendar size={14} color={colors.textSecondary} />
-          <Text style={styles.periodChipText}>期間：過去1か月</Text>
-        </TouchableOpacity>
       </View>
 
       {activeListOptions && activeListSelectedValue !== null && (
@@ -211,6 +205,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  headerSpacer: {
+    width: 22,
+  },
   headerTitle: {
     flex: 1,
     fontSize: 18,
@@ -221,28 +218,16 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
+  filterIconButton: {
+    padding: spacing.sm,
+  },
   scrollView: {
     flex: 1,
-  },
-  periodChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.cardBackground,
-  },
-  periodChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginLeft: 6,
   },
   listContent: {
     paddingHorizontal: spacing.lg,
