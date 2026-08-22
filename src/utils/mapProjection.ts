@@ -41,3 +41,12 @@ export const projectToRegion = (latitude: number, longitude: number, region: Map
     y: 1 - (latitude - latMin) / (latMax - latMin),
   };
 };
+
+// 現在の表示範囲(region)を、コンビニ・自販機・カフェ等の実データ取得（範囲指定のAPI呼び出し）で
+// 使う緯度経度境界の形式に変換する。
+export const regionToBounds = (region: MapRegion) => ({
+  latMin: region.latitude - region.latitudeDelta / 2,
+  latMax: region.latitude + region.latitudeDelta / 2,
+  lngMin: region.longitude - region.longitudeDelta / 2,
+  lngMax: region.longitude + region.longitudeDelta / 2,
+});

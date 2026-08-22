@@ -10,12 +10,14 @@ interface Props {
   member: Member;
   x: number; // マップ表示エリア内の水平位置（0〜1）
   y: number; // マップ表示エリア内の垂直位置（0〜1）
+  // アイコン本体タップ時のハンドラ（詳細カードを開く）。画面外にクランプ表示中は
+  // 代わりにonPressOffscreenIndicatorが呼ばれるため、こちらは呼ばれない。
   onPress?: (member: Member) => void;
   // ドラッグして表示範囲外に出た場合、画面端にクランプして表示する際の実際の位置への方向（度、0=右）。
   // 指定時は画面端にいることが分かるよう矢印バッジを表示し、本体を少し薄く見せる。
   offscreenDirectionDeg?: number;
-  // 画面端の矢印バッジをタップした際のハンドラ。指定時、遠方にいるメンバーへ
-  // カメラをワンタップでジャンプさせる導線として使う（アバター本体のonPressとは別動作）。
+  // 画面外にクランプ表示中のタップ時のハンドラ（アイコン本体・矢印バッジどちらのタップでも呼ばれる）。
+  // 詳細カードより先に、遠方にいる実際の位置へカメラをワンタップでジャンプさせる導線として使う。
   onPressOffscreenIndicator?: (member: Member) => void;
 }
 
@@ -51,7 +53,7 @@ export const MapMemberPin: React.FC<Props> = ({
         { left: `${x * 100}%`, top: `${y * 100}%` },
         isOffscreen && styles.wrapperOffscreen,
       ]}>
-      <View style={styles.avatarArea}>
+      <View style={[styles.avatarArea, isOffscreen && styles.avatarAreaOffscreen]}>
         {member.isSelf && <View style={styles.selfPulse} />}
 
         <View style={styles.gaugeWrapper} pointerEvents="none">
@@ -64,7 +66,10 @@ export const MapMemberPin: React.FC<Props> = ({
           />
         </View>
 
-        <TouchableOpacity activeOpacity={0.8} onPress={() => onPress?.(member)} style={styles.ring}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => (isOffscreen ? onPressOffscreenIndicator?.(member) : onPress?.(member))}
+          style={styles.ring}>
           {showFallbackAvatar ? (
             <View style={[styles.avatar, styles.avatarFallback]}>
               <User size={22} color={colors.textSecondary} />
@@ -96,12 +101,12 @@ export const MapMemberPin: React.FC<Props> = ({
             hitSlop={10}
             activeOpacity={0.7}
             onPress={() => onPressOffscreenIndicator?.(member)}>
-            <ChevronRight size={12} color="#FFFFFF" style={{ transform: [{ rotate: `${offscreenDirectionDeg}deg` }] }} />
+            <ChevronRight size={16} color="#FFFFFF" style={{ transform: [{ rotate: `${offscreenDirectionDeg}deg` }] }} />
           </TouchableOpacity>
         )}
       </View>
 
-      <View style={styles.nameTag}>
+      <View style={[styles.nameTag, isOffscreen && styles.nameTagOffscreen]}>
         <Text style={styles.nameText} numberOfLines={1}>
           {member.isSelf ? `${member.name}（現在地）` : member.name}
         </Text>
@@ -117,11 +122,16 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -SIZE / 2 }, { translateY: -SIZE / 2 }],
   },
   wrapperOffscreen: {
-    opacity: 0.85,
+    opacity: 0.55,
   },
   avatarArea: {
     width: SIZE,
     height: SIZE,
+  },
+  // 画面外にいるメンバーは、実際に遠くにいることが直感的に分かるよう本体を一回り小さく縮小する
+  // （transformなのでレイアウト上の占有サイズ・名前タグの位置は変わらない）。
+  avatarAreaOffscreen: {
+    transform: [{ scale: 0.7 }],
   },
   gaugeWrapper: {
     position: 'absolute',
@@ -184,12 +194,12 @@ const styles = StyleSheet.create({
   },
   directionBadge: {
     position: 'absolute',
-    top: -2,
-    left: -2,
-    width: 20,
-    height: 20,
+    top: -6,
+    left: -6,
+    width: 26,
+    height: 26,
     borderRadius: radius.full,
-    backgroundColor: '#6B7684',
+    backgroundColor: colors.primary,
     borderWidth: 2,
     borderColor: colors.cardBackground,
     alignItems: 'center',
@@ -202,6 +212,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
+  },
+  nameTagOffscreen: {
+    transform: [{ scale: 0.85 }],
   },
   nameText: {
     fontSize: 11,

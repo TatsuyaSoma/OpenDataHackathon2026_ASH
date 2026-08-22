@@ -1,11 +1,10 @@
-import { ArrowLeft, History, MoreVertical } from 'lucide-react-native';
+import { History } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,19 +24,11 @@ import { showAlert } from '../utils/crossPlatformAlert';
 interface Props {
   member: Member;
   historicalNotice?: string; // 通知履歴から遷移した場合など、過去時点のスナップショットであることを示す注記
-  onBack?: () => void;
   onOpenMap?: (member: Member) => void;
-  onOpenMenu?: (member: Member) => void;
 }
 
-export const CardDetailScreen: React.FC<Props> = ({
-  member,
-  historicalNotice,
-  onBack,
-  onOpenMap,
-  onOpenMenu,
-}) => {
-  const { completeMission, toggleResting } = useMembers();
+export const CardDetailScreen: React.FC<Props> = ({ member, historicalNotice, onOpenMap }) => {
+  const { toggleResting } = useMembers();
 
   // お休み解除をこの画面上で即座に反映できるよう、ローカルstateとして保持
   // （実際にはサーバー/位置情報サービスへの反映後、上位のstateも更新する想定）
@@ -56,27 +47,9 @@ export const CardDetailScreen: React.FC<Props> = ({
     showAlert('送信しました', `${member.name}に「元気！」を送りました。`);
   };
 
-  const handleCompleteMission = (missionId: string) => {
-    completeMission(member.id, missionId);
-    if (missionId === 'cool-place' && !isResting) {
-      toggleResting(member.id);
-      setIsResting(true);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={8}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>カード詳細画面</Text>
-        <TouchableOpacity onPress={() => onOpenMenu?.(member)} hitSlop={8}>
-          <MoreVertical size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {historicalNotice && (
@@ -103,10 +76,9 @@ export const CardDetailScreen: React.FC<Props> = ({
           />
         )}
 
-        <MissionCard
-          member={isResting === member.isResting ? member : { ...member, isResting }}
-          onCompleteMission={handleCompleteMission}
-        />
+        {!member.isSelf && (
+          <MissionCard member={isResting === member.isResting ? member : { ...member, isResting }} />
+        )}
 
         <BasicInfoCard
           birthDate={member.birthDate}
@@ -126,18 +98,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   content: {
     paddingHorizontal: spacing.lg,

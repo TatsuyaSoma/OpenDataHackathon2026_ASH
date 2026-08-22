@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Thermometer, Droplet, Wind } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { ChevronDown, ChevronUp, Thermometer, Droplet, Wind } from 'lucide-react-native';
 import { EnvironmentInfo } from '../types';
 import { colors, spacing, radius } from '../constants/theme';
 
@@ -17,6 +17,7 @@ interface StatItem {
 }
 
 export const EnvironmentStatsGrid: React.FC<Props> = ({ environment, observedAt }) => {
+  const [expanded, setExpanded] = useState(false);
   const stats: StatItem[] = [
     {
       key: 'temperature',
@@ -46,18 +47,30 @@ export const EnvironmentStatsGrid: React.FC<Props> = ({ environment, observedAt 
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>現在の環境（{observedAt}時点）</Text>
-      <View style={styles.grid}>
-        {stats.map((stat) => (
-          <View key={stat.key} style={styles.statBox}>
-            <View style={styles.statHeader}>
-              {stat.icon}
-              <Text style={styles.statLabel}>{stat.label}</Text>
+      <TouchableOpacity
+        style={styles.header}
+        activeOpacity={0.7}
+        onPress={() => setExpanded((prev) => !prev)}>
+        <Text style={styles.title}>現在の環境（{observedAt}時点）</Text>
+        {expanded ? (
+          <ChevronUp size={18} color={colors.textSecondary} />
+        ) : (
+          <ChevronDown size={18} color={colors.textSecondary} />
+        )}
+      </TouchableOpacity>
+      {expanded && (
+        <View style={styles.grid}>
+          {stats.map((stat) => (
+            <View key={stat.key} style={styles.statBox}>
+              <View style={styles.statHeader}>
+                {stat.icon}
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
+              <Text style={styles.statValue}>{stat.value}</Text>
             </View>
-            <Text style={styles.statValue}>{stat.value}</Text>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };
@@ -71,11 +84,16 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
   title: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: spacing.md,
   },
   grid: {
     flexDirection: 'row',

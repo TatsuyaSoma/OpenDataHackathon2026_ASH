@@ -1,12 +1,10 @@
 import { AppleMaps, CameraMoveEvent, GoogleMaps } from 'expo-maps';
-import { BedDouble, LocateFixed } from 'lucide-react-native';
+import { LocateFixed } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapDisplayControls } from '../components/MapDisplayControls';
-import { MapLegendCard } from '../components/MapLegendCard';
 import { MapMemberPin } from '../components/MapMemberPin';
-import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
 import { MapSpotPin } from '../components/MapSpotPin';
 import { MapWbgtReferenceBadge } from '../components/MapWbgtReferenceBadge';
 import { MapWbgtTileLayer } from '../components/MapWbgtTileLayer';
@@ -15,10 +13,16 @@ import { useMembers } from '../context/MembersContext';
 import { mockMapSpots } from '../data/mockData';
 import { useNearbySpots } from '../hooks/use-nearby-spots';
 import { useNearestWbgt } from '../hooks/use-nearest-wbgt';
+import { useTokyoLandCover } from '../hooks/use-tokyo-land-cover';
 import { useTokyoWaterSpots } from '../hooks/use-tokyo-water-spots';
 import { useTokyoWbgtGrid } from '../hooks/use-tokyo-wbgt-grid';
 import { MapSpot, Member } from '../types';
-import { MAP_BOUNDS, MapRegion, projectToRegion } from '../utils/mapProjection';
+import { MAP_BOUNDS, MapRegion, projectToRegion, regionToBounds } from '../utils/mapProjection';
+
+// 地図の移動が落ち着いてから周辺スポットを取得し直すまでの待ち時間。
+// onCameraMoveはドラッグ中に連続発火するため、そのたびに範囲を変えて取得すると
+// Overpass API（無料の共用サービス）への過剰な連打になってしまう。
+const SPOT_BOUNDS_DEBOUNCE_MS = 600;
 
 /**
  * ネイティブ（iOS/Android）版マップ画面。expo-mapsで実際のApple Maps/Google Mapsを表示し、
@@ -63,11 +67,9 @@ interface ScreenPosition {
 }
 
 // projectToRegionで得た（表示範囲外では0〜1の外に出うる）正規化座標を、
-// 画面端にクランプした表示位置に変換する。
+// 画面端にクランプした表示位置に変換する。呼び出し側でviewportが実測済み（幅・高さとも0より大きい）
+// であることを保証している（mapReady判定）。
 const toScreenPosition = (normalized: { x: number; y: number }, viewport: Size, margin: number): ScreenPosition => {
-  if (viewport.width === 0 || viewport.height === 0) {
-    return { x: normalized.x, y: normalized.y };
-  }
   const screenX = normalized.x * viewport.width;
   const screenY = normalized.y * viewport.height;
 
@@ -84,16 +86,81 @@ const toScreenPosition = (normalized: { x: number; y: number }, viewport: Size, 
   };
 };
 
+// 画面外にクランプされたメンバーピン同士が完全に重なるのを防ぐための、辺沿いのずらし幅。
+const OFFSCREEN_SPREAD_PX = 34;
+
+// メンバーピンの表示位置を計算する。toScreenPositionと同じクランプ方式だが、
+// 練馬・調布のように離れた場所にまとまって住んでいるメンバーが同時に画面外へ出た場合、
+// 素朴にクランプするだけだと全員が画面端の同じ位置に重なってしまい、後ろのアイコンが
+// 隠れて「消えた」ように見えてしまう。そこで、同じ辺にクランプされたメンバーが複数いる場合は、
+// その辺に沿って少しずつ位置をずらし、全員のアイコンが見えるようにする
+// （矢印バッジが示す方向自体は、ずらす前の本来の位置への方向を使う）。
+// 呼び出し側でviewportが実測済み（幅・高さとも0より大きい）であることを保証している（mapReady判定）。
+const computeMemberPositions = (
+  members: Member[],
+  region: MapRegion,
+  viewport: Size,
+  margin: number
+): Record<string, ScreenPosition> => {
+  const raws = members.map((member) => {
+    const normalized = projectToRegion(member.location.latitude, member.location.longitude, region);
+    const screenX = normalized.x * viewport.width;
+    const screenY = normalized.y * viewport.height;
+    const clampedX = Math.min(Math.max(screenX, margin), viewport.width - margin);
+    const clampedY = Math.min(Math.max(screenY, margin), viewport.height - margin);
+    // クランプされた辺を表すキー（例: 上端かつ左端なら"TL"）。空文字なら画面内。
+    const edgeKey =
+      (clampedY !== screenY ? (screenY < clampedY ? 'T' : 'B') : '') +
+      (clampedX !== screenX ? (screenX < clampedX ? 'L' : 'R') : '');
+    return { member, screenX, screenY, clampedX, clampedY, edgeKey };
+  });
+
+  const groups = new Map<string, typeof raws>();
+  raws.forEach((raw) => {
+    if (!raw.edgeKey) return;
+    const group = groups.get(raw.edgeKey);
+    if (group) group.push(raw);
+    else groups.set(raw.edgeKey, [raw]);
+  });
+
+  const spreadOffsetById = new Map<string, { dx: number; dy: number }>();
+  groups.forEach((group, edgeKey) => {
+    if (group.length <= 1) return;
+    // 上端・下端にクランプされている場合は横方向へ、左端・右端の場合は縦方向へ並べる。
+    const spreadHorizontally = edgeKey.includes('T') || edgeKey.includes('B');
+    const sorted = [...group].sort((a, b) => a.member.id.localeCompare(b.member.id));
+    sorted.forEach((raw, index) => {
+      const offset = (index - (sorted.length - 1) / 2) * OFFSCREEN_SPREAD_PX;
+      spreadOffsetById.set(raw.member.id, spreadHorizontally ? { dx: offset, dy: 0 } : { dx: 0, dy: offset });
+    });
+  });
+
+  const positions: Record<string, ScreenPosition> = {};
+  raws.forEach((raw) => {
+    const spread = spreadOffsetById.get(raw.member.id);
+    const finalX = Math.min(Math.max(raw.clampedX + (spread?.dx ?? 0), margin), viewport.width - margin);
+    const finalY = Math.min(Math.max(raw.clampedY + (spread?.dy ?? 0), margin), viewport.height - margin);
+    positions[raw.member.id] = {
+      x: finalX / viewport.width,
+      y: finalY / viewport.height,
+      offscreenDirectionDeg: raw.edgeKey
+        ? (Math.atan2(raw.screenY - raw.clampedY, raw.screenX - raw.clampedX) * 180) / Math.PI
+        : undefined,
+    };
+  });
+  return positions;
+};
+
 // 初期カメラのズーム。都心の数ブロック程度が見える大きさの目安値
 // （expo-mapsのcameraPositionは初期値のみで、以降はネイティブ地図が自身でパン/ズームを処理する）。
 const INITIAL_ZOOM = 15;
 
 export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }) => {
   const { members } = useMembers();
-  // 環境省WBGT実況値のうち、この地図が表示するエリアに最も近い地点の値（参考値）
-  const { data: nearestWbgt } = useNearestWbgt(MAP_CENTER.latitude, MAP_CENTER.longitude);
   // 都内WBGT実況値（広域ヒートマップの逆距離加重補間に使う実データ）
   const { readings: wbgtReadings } = useTokyoWbgtGrid();
+  // ヒートマップに「水辺・緑地に近いほど涼しい」補正をかけるための実データ（河川・公園緑地の位置）
+  const { features: coolingFeatures } = useTokyoLandCover();
   const [heatmapEnabled, setHeatmapEnabled] = useState(true);
   const [membersEnabled, setMembersEnabled] = useState(true);
   const [convenienceEnabled, setConvenienceEnabled] = useState(true);
@@ -101,6 +168,9 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
   const [cafeEnabled, setCafeEnabled] = useState(true);
   const [waterEnabled, setWaterEnabled] = useState(true);
   const [disasterWaterEnabled, setDisasterWaterEnabled] = useState(true);
+  // 表示設定パネルの開閉状態。展開中はメンバー・スポットのピンより手前に表示するため、
+  // rightColumnの重なり順をこの値で切り替える。
+  const [filterExpanded, setFilterExpanded] = useState(false);
 
   const [viewportSize, setViewportSize] = useState<Size>({ width: 0, height: 0 });
   // 現在の地図の表示範囲（中心座標＋緯度経度スパン）。onCameraMoveは初回マウント時にも
@@ -128,7 +198,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
     });
   }, []);
 
-  const hasResting = members.some((m) => m.isResting);
   const selfMember = members.find((m) => m.isSelf);
 
   const mapRef = useRef<GoogleMaps.MapView | AppleMaps.MapView | null>(null);
@@ -171,25 +240,51 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
     return () => clearTimeout(timeoutId);
   }, [focusMemberId, members, handleFocusMember]);
 
+  // regionとviewportSizeは別々の非同期タイミングで揃う（regionはonCameraMove、
+  // viewportSizeはコンテナのonLayout）。地図起動直後や特定メンバーへのジャンプ直後は、
+  // regionが先に確定してviewportSizeがまだ{0,0}のまま、という順序になることがある。
+  // その状態でピン位置を計算すると、画面中央にいるメンバー以外は不正な位置に飛んでしまい
+  // 実質的に見えなくなるため、両方揃うまではピンそのものを描画しない。
+  const mapReady = region !== null && viewportSize.width > 0 && viewportSize.height > 0;
+
   const memberPositions = useMemo(() => {
-    if (!region) return {};
-    const positions: Record<string, ScreenPosition> = {};
-    members.forEach((member) => {
-      const normalized = projectToRegion(member.location.latitude, member.location.longitude, region);
-      positions[member.id] = toScreenPosition(normalized, viewportSize, MEMBER_EDGE_MARGIN);
-    });
-    return positions;
-  }, [members, viewportSize, region]);
+    if (!mapReady || !region) return {};
+    return computeMemberPositions(members, region, viewportSize, MEMBER_EDGE_MARGIN);
+  }, [members, viewportSize, region, mapReady]);
+
+  // コンビニ・自販機・カフェ・給水スポット等は、地図の表示範囲が変わるたびに取得し直す。
+  // 表示範囲そのもの（region）を直接使うと、ドラッグ中の連続発火のたびに取得してしまうため、
+  // 移動が落ち着いてから確定する値（spotBounds）を別に持つ。region取得前（起動直後）は
+  // MAP_BOUNDS（丸の内・日本橋周辺の固定範囲）を初期値として使う。
+  const [spotBounds, setSpotBounds] = useState(MAP_BOUNDS);
+  useEffect(() => {
+    if (!region) return;
+    const timeoutId = setTimeout(() => {
+      setSpotBounds(regionToBounds(region));
+    }, SPOT_BOUNDS_DEBOUNCE_MS);
+    return () => clearTimeout(timeoutId);
+  }, [region]);
+
+  // 「参考WBGT」バッジも、spotBoundsと同じデバウンス済みの表示範囲を使い、
+  // 中心に最も近い環境省実況値地点を追従させる（region取得前はMAP_BOUNDS中心＝丸の内周辺）。
+  const referenceWbgtCenter = useMemo(
+    () => ({
+      latitude: (spotBounds.latMin + spotBounds.latMax) / 2,
+      longitude: (spotBounds.lngMin + spotBounds.lngMax) / 2,
+    }),
+    [spotBounds]
+  );
+  const { data: nearestWbgt } = useNearestWbgt(referenceWbgtCenter.latitude, referenceWbgtCenter.longitude);
 
   // コンビニ・自販機・カフェはOpenStreetMap(Overpass API)、給水スポット・災害時給水は
   // 東京都水道局のオープンデータの実データを取得し、取得中・失敗時はモックにフォールバックする
-  const { spots: liveOsmSpots, status: liveOsmSpotsStatus } = useNearbySpots(MAP_BOUNDS);
+  const { spots: liveOsmSpots, status: liveOsmSpotsStatus } = useNearbySpots(spotBounds);
   const osmSpots =
     liveOsmSpotsStatus === 'success'
       ? liveOsmSpots
       : mockMapSpots.filter((spot) => spot.type === 'convenience' || spot.type === 'vending' || spot.type === 'cafe');
 
-  const { drinkingSpots, disasterSpots, status: waterSpotsStatus } = useTokyoWaterSpots(MAP_BOUNDS);
+  const { drinkingSpots, disasterSpots, status: waterSpotsStatus } = useTokyoWaterSpots(spotBounds);
   const waterSpots =
     waterSpotsStatus === 'success' ? drinkingSpots : mockMapSpots.filter((spot) => spot.type === 'water');
   const disasterWaterSpots =
@@ -204,7 +299,7 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
   });
 
   const spotPositions: Record<string, ScreenPosition> = {};
-  if (region) {
+  if (mapReady && region) {
     visibleSpots.forEach((spot) => {
       const normalized = projectToRegion(spot.latitude, spot.longitude, region);
       spotPositions[spot.id] = toScreenPosition(normalized, viewportSize, SPOT_EDGE_MARGIN);
@@ -215,9 +310,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>マップ</Text>
-        </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>見守りメンバーが登録されていません。</Text>
         </View>
@@ -243,10 +335,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>マップ</Text>
-      </View>
-
       <View style={styles.mapArea} onLayout={handleMapAreaLayout}>
         <View style={styles.mapBackground}>
           {Platform.OS === 'ios' ? (
@@ -265,41 +353,10 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
             />
           )}
 
-          {region && heatmapEnabled && <MapWbgtTileLayer region={region} readings={wbgtReadings} />}
-
-          {region &&
-            visibleSpots.map((spot) => (
-              <MapSpotPin
-                key={spot.id}
-                spot={spot}
-                x={spotPositions[spot.id].x}
-                y={spotPositions[spot.id].y}
-                offscreen={spotPositions[spot.id].offscreenDirectionDeg !== undefined}
-                selected={selectedSpotId === spot.id}
-                onPress={handleSpotPress}
-              />
-            ))}
-
-          {region &&
-            membersEnabled &&
-            members.map((member) => (
-              <MapMemberPin
-                key={member.id}
-                member={member}
-                x={memberPositions[member.id].x}
-                y={memberPositions[member.id].y}
-                onPress={onOpenMemberDetail}
-                offscreenDirectionDeg={memberPositions[member.id].offscreenDirectionDeg}
-                onPressOffscreenIndicator={handleFocusMember}
-              />
-            ))}
+          {region && heatmapEnabled && (
+            <MapWbgtTileLayer region={region} readings={wbgtReadings} coolingFeatures={coolingFeatures} />
+          )}
         </View>
-
-        {region && heatmapEnabled && (
-          <View style={styles.legendWrapper} pointerEvents="box-none">
-            <MapLegendCard />
-          </View>
-        )}
 
         {heatmapEnabled && nearestWbgt && (
           <View style={styles.wbgtBadgeWrapper}>
@@ -307,7 +364,9 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
           </View>
         )}
 
-        <View style={styles.rightColumn} pointerEvents="box-none">
+        <View
+          style={[styles.rightColumn, filterExpanded && styles.rightColumnRaised]}
+          pointerEvents="box-none">
           {selfMember && (
             <TouchableOpacity
               style={styles.recenterButton}
@@ -332,19 +391,43 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
             onToggleWater={setWaterEnabled}
             disasterWaterEnabled={disasterWaterEnabled}
             onToggleDisasterWater={setDisasterWaterEnabled}
+            onExpandedChange={setFilterExpanded}
           />
-
-          {hasResting && (
-            <View style={styles.restingPill}>
-              <BedDouble size={14} color={colors.primary} />
-              <Text style={styles.restingPillText}>お休み中のメンバーあり</Text>
-            </View>
-          )}
         </View>
-      </View>
 
-      <View style={styles.bottomLegend}>
-        <MapSpotLegendBar />
+        {/* 凡例カード・WBGT実況バッジ・右側ボタン列より後（＝手前）に描画することで、
+            画面端にクランプされたスポット・メンバーのピンがそれらのUIの下に隠れて
+            見えなくなるのを防ぐ（例: 現在地から離れたメンバーへジャンプすると、
+            残りのメンバー全員が画面上端に寄り、凡例カードの真裏に隠れてしまっていた）。
+            pointerEvents="box-none"で、ピンが無い部分は地図の操作を妨げないようにする。 */}
+        <View style={styles.mapBackground} pointerEvents="box-none">
+          {mapReady &&
+            visibleSpots.map((spot) => (
+              <MapSpotPin
+                key={spot.id}
+                spot={spot}
+                x={spotPositions[spot.id].x}
+                y={spotPositions[spot.id].y}
+                offscreen={spotPositions[spot.id].offscreenDirectionDeg !== undefined}
+                selected={selectedSpotId === spot.id}
+                onPress={handleSpotPress}
+              />
+            ))}
+
+          {mapReady &&
+            membersEnabled &&
+            members.map((member) => (
+              <MapMemberPin
+                key={member.id}
+                member={member}
+                x={memberPositions[member.id].x}
+                y={memberPositions[member.id].y}
+                onPress={onOpenMemberDetail}
+                offscreenDirectionDeg={memberPositions[member.id].offscreenDirectionDeg}
+                onPressOffscreenIndicator={handleFocusMember}
+              />
+            ))}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -354,16 +437,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
   },
   emptyState: {
     flex: 1,
@@ -389,11 +462,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  legendWrapper: {
-    position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
-  },
   wbgtBadgeWrapper: {
     position: 'absolute',
     bottom: spacing.sm,
@@ -410,22 +478,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     maxWidth: '60%',
   },
-  restingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardBackground,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.restBorder,
-  },
-  restingPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 6,
-    flexShrink: 1,
+  // 表示設定パネルを展開している間だけ、メンバー・スポットのピンより手前に表示する
+  // （ピン自体は画面端にクランプされた際に見えなくならないよう、通常はこのボタン列より
+  // 手前＝後に描画しているため、パネルが開いている間はこちらのzIndexを引き上げて逆転させる）。
+  rightColumnRaised: {
+    zIndex: 10,
+    elevation: 10,
   },
   recenterButton: {
     width: 40,
@@ -439,9 +497,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-  },
-  bottomLegend: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
   },
 });

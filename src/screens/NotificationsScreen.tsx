@@ -8,7 +8,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Filter, MoreVertical } from 'lucide-react-native';
+import { Filter } from 'lucide-react-native';
 import { Member, NotificationItem, RiskLevel } from '../types';
 import { RISK_CONFIG } from '../constants/riskConfig';
 import { colors, spacing } from '../constants/theme';
@@ -122,16 +122,6 @@ export const NotificationsScreen: React.FC<Props> = ({ onOpenMemberDetail }) => 
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <Text style={styles.headerTitle}>通知履歴</Text>
-        <TouchableOpacity
-          onPress={() => showAlert('メニュー', 'メニューは準備中です。')}
-          hitSlop={8}>
-          <MoreVertical size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.filterRow}>
         <TouchableOpacity style={styles.filterIconButton} onPress={resetFilters} hitSlop={8}>
           <Filter size={20} color={colors.textPrimary} />
@@ -198,22 +188,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerSpacer: {
-    width: 22,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
   },
   filterRow: {
     flexDirection: 'row',

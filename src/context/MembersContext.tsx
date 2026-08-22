@@ -128,10 +128,11 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const reorderMembers = useCallback((orderedIds: string[]) => {
     setMembers((prev) => {
       const byId = new Map(prev.map((member) => [member.id, member]));
+      const orderedIdSet = new Set(orderedIds);
       const reordered = orderedIds
         .map((id) => byId.get(id))
         .filter((member): member is Member => member !== undefined);
-      const remaining = prev.filter((member) => !orderedIds.includes(member.id));
+      const remaining = prev.filter((member) => !orderedIdSet.has(member.id));
       return [...reordered, ...remaining];
     });
   }, []);

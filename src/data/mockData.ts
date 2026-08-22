@@ -19,12 +19,12 @@ export const mockMembers: Member[] = [
     gender: '女性',
     isSelf: true,
     birthDate: '1989年6月14日',
-    homeAddress: '東京都千代田区丸の内1-1-1',
+    homeAddress: '東京都練馬区豊玉北1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/okaasan.png')),
     location: {
-      address: '神奈川県横浜市港北区箕輪町（実家）',
-      latitude: 35.559,
-      longitude: 139.643,
+      address: '東京都練馬区豊玉北（実家）',
+      latitude: 35.735,
+      longitude: 139.652,
     },
     // 実測データ取得前・失敗時も体力ゲージが動作するよう、危険度が高めに出る値を初期値としておく
     // （取得できた場合はアメダスの実測値＋補正で上書きされる）
@@ -69,14 +69,14 @@ export const mockMembers: Member[] = [
     age: 66,
     gender: '男性',
     birthDate: '1960年11月8日',
-    homeAddress: '福島県福島市渡利',
+    homeAddress: '東京都調布市布田',
     medicalNotes: '高血圧（降圧剤服用中）',
     photoUrl: memberPhotoUri(require('@/assets/images/members/ojiichan.png')),
-    // おばあちゃんと一緒に、福島市内の住宅地にある自宅で暮らしている。
+    // おばあちゃんと一緒に、調布市内の住宅地にある自宅で暮らしている。
     location: {
-      address: '福島県福島市渡利（自宅）',
-      latitude: 37.7502,
-      longitude: 140.4802,
+      address: '東京都調布市布田（自宅）',
+      latitude: 35.6505,
+      longitude: 139.5455,
     },
     environment: { temperature: 32.1, humidity: 60, wbgt: 28.4, windSpeed: 1.6 },
     riskLevel: 'warning',
@@ -99,13 +99,13 @@ export const mockMembers: Member[] = [
     gender: '男性',
     birthDate: '2015年9月20日',
     notes: '小学校5年生',
-    homeAddress: '東京都千代田区丸の内1-1-1',
+    homeAddress: '東京都練馬区豊玉北1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/oniichan.png')),
-    // 妹と同じ、横浜市内の小学校に通っている。
+    // 妹と同じ、練馬駅周辺の小学校に通っている。
     location: {
-      address: '神奈川県横浜市港北区日吉本町（小学校）',
-      latitude: 35.5556,
-      longitude: 139.6467,
+      address: '東京都練馬区練馬（小学校）',
+      latitude: 35.7385,
+      longitude: 139.6535,
     },
     environment: { temperature: 34.6, humidity: 68, wbgt: 31.2, windSpeed: 2.1 },
     riskLevel: 'danger',
@@ -128,13 +128,13 @@ export const mockMembers: Member[] = [
     gender: '女性',
     birthDate: '2019年4月5日',
     notes: '小学校2年生',
-    homeAddress: '東京都千代田区丸の内1-1-1',
+    homeAddress: '東京都練馬区豊玉北1-1-1',
     photoUrl: memberPhotoUri(require('@/assets/images/members/imouto.png')),
-    // お兄ちゃんと同じ、横浜市内の小学校に通っている。
+    // お兄ちゃんと同じ、練馬駅周辺の小学校に通っている。
     location: {
-      address: '神奈川県横浜市港北区日吉本町（小学校）',
-      latitude: 35.5554,
-      longitude: 139.6463,
+      address: '東京都練馬区練馬（小学校）',
+      latitude: 35.7383,
+      longitude: 139.6533,
     },
     environment: { temperature: 27.4, humidity: 50, wbgt: 23.9, windSpeed: 3.2 },
     riskLevel: 'safeLight',
@@ -156,13 +156,13 @@ export const mockMembers: Member[] = [
     age: 63,
     gender: '女性',
     birthDate: '1962年1月30日',
-    homeAddress: '福島県福島市渡利',
+    homeAddress: '東京都調布市布田',
     photoUrl: memberPhotoUri(require('@/assets/images/members/obaachan.png')),
-    // おじいちゃんと一緒に、福島市内の住宅地にある自宅で暮らしている。
+    // おじいちゃんと一緒に、調布市内の住宅地にある自宅で暮らしている。
     location: {
-      address: '福島県福島市渡利（自宅）',
-      latitude: 37.7498,
-      longitude: 140.4798,
+      address: '東京都調布市布田（自宅）',
+      latitude: 35.6503,
+      longitude: 139.5453,
     },
     environment: { temperature: 32.1, humidity: 60, wbgt: 28.4, windSpeed: 1.6 },
     riskLevel: 'warning',

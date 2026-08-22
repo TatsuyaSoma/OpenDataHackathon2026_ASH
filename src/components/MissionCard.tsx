@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MISSION_MAX_RECOVERY } from '../constants/missions';
@@ -7,7 +8,12 @@ import { Member } from '../types';
 
 interface Props {
   member: Member;
-  onCompleteMission: (missionId: string) => void;
+  // 自分自身のミッションを表示する画面（達成操作ができる）でのみ指定する。
+  // 未指定時、達成ボタンは表示されず、他メンバーのミッションを読み取り専用で表示する。
+  onCompleteMission?: (missionId: string) => void;
+  // 初期表示時に展開しておくかどうか（未指定時は折りたたみ）。
+  // 「ミッション」画面のようにミッション確認が主目的の画面では展開済みにしたい。
+  defaultExpanded?: boolean;
 }
 
 // クールダウンの残り時間を「あと◯分」「あと◯時間◯分」の形式にする
@@ -25,7 +31,7 @@ const formatRemaining = (ms: number): string => {
  * その間は再挑戦できない。クールダウンはお休みモードの切り替えによらず、達成時から計測する。
  * 3つ全部を同時にクリア中の状態にすると、追加の全クリアボーナスが入る。
  */
-export const MissionCard: React.FC<Props> = ({ member, onCompleteMission }) => {
+export const MissionCard: React.FC<Props> = ({ member, onCompleteMission, defaultExpanded = false }) => {
   // クールダウンの残り時間表示を更新するため、定期的に再レンダーする
   // （1時間単位のクールダウンなので、秒単位の精度は不要）
   const [, setTick] = useState(0);
@@ -33,18 +39,29 @@ export const MissionCard: React.FC<Props> = ({ member, onCompleteMission }) => {
     const intervalId = setInterval(() => setTick((n) => n + 1), 30000);
     return () => clearInterval(intervalId);
   }, []);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   const states = computeMissionStates(member.missionCompletions, member.isResting);
   const projectedVitality = Math.min(100, member.vitality + MISSION_MAX_RECOVERY);
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.header}
+        activeOpacity={0.7}
+        onPress={() => setExpanded((prev) => !prev)}>
         <Text style={styles.title}>ミッション</Text>
-        <Text style={styles.recoveryHint}>全部達成後 {projectedVitality}%</Text>
-      </View>
+        <View style={styles.headerRight}>
+          <Text style={styles.recoveryHint}>全部達成後 {projectedVitality}%</Text>
+          {expanded ? (
+            <ChevronUp size={16} color={colors.textSecondary} />
+          ) : (
+            <ChevronDown size={16} color={colors.textSecondary} />
+          )}
+        </View>
+      </TouchableOpacity>
 
-      {states.map((state, index) => (
+      {expanded && states.map((state, index) => (
         <View key={state.id} style={[styles.row, index === 0 && styles.rowFirst]}>
           <View style={styles.rowInfo}>
             <Text style={styles.missionLabel}>{state.label}</Text>
@@ -55,7 +72,7 @@ export const MissionCard: React.FC<Props> = ({ member, onCompleteMission }) => {
               style={[styles.button, !state.available && styles.buttonDisabled]}
               activeOpacity={0.7}
               disabled={!state.available}
-              onPress={() => onCompleteMission(state.id)}>
+              onPress={() => onCompleteMission?.(state.id)}>
               <Text style={[styles.buttonText, !state.available && styles.buttonTextDisabled]} numberOfLines={1}>
                 {state.onCooldown ? formatRemaining(state.remainingMs) : '達成する'}
               </Text>
@@ -84,6 +101,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   title: {
     fontSize: 15,

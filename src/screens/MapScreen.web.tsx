@@ -1,4 +1,4 @@
-import { BedDouble, LocateFixed } from 'lucide-react-native';
+import { LocateFixed } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LayoutChangeEvent, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -6,9 +6,7 @@ import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapBackgroundLayer } from '../components/MapBackgroundLayer';
 import { MapDisplayControls } from '../components/MapDisplayControls';
-import { MapLegendCard } from '../components/MapLegendCard';
 import { MapMemberPin } from '../components/MapMemberPin';
-import { MapSpotLegendBar } from '../components/MapSpotLegendBar';
 import { MapSpotPin } from '../components/MapSpotPin';
 import { MapWbgtReferenceBadge } from '../components/MapWbgtReferenceBadge';
 import { MapWbgtTileLayer } from '../components/MapWbgtTileLayer';
@@ -17,6 +15,7 @@ import { useMembers } from '../context/MembersContext';
 import { mockMapSpots } from '../data/mockData';
 import { useNearbySpots } from '../hooks/use-nearby-spots';
 import { useNearestWbgt } from '../hooks/use-nearest-wbgt';
+import { useTokyoLandCover } from '../hooks/use-tokyo-land-cover';
 import { useTokyoWaterSpots } from '../hooks/use-tokyo-water-spots';
 import { useTokyoWbgtGrid } from '../hooks/use-tokyo-wbgt-grid';
 import { MapSpot, Member } from '../types';
@@ -122,6 +121,8 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
   const { data: nearestWbgt } = useNearestWbgt(MAP_CENTER.latitude, MAP_CENTER.longitude);
   // 都内WBGT実況値（広域ヒートマップの逆距離加重補間に使う実データ）
   const { readings: wbgtReadings } = useTokyoWbgtGrid();
+  // ヒートマップに「水辺・緑地に近いほど涼しい」補正をかけるための実データ（河川・公園緑地の位置）
+  const { features: coolingFeatures } = useTokyoLandCover();
   const [heatmapEnabled, setHeatmapEnabled] = useState(true);
   const [membersEnabled, setMembersEnabled] = useState(true);
   const [convenienceEnabled, setConvenienceEnabled] = useState(true);
@@ -129,6 +130,9 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
   const [cafeEnabled, setCafeEnabled] = useState(true);
   const [waterEnabled, setWaterEnabled] = useState(true);
   const [disasterWaterEnabled, setDisasterWaterEnabled] = useState(true);
+  // 表示設定パネルの開閉状態。展開中はメンバー・スポットのピンより手前に表示するため、
+  // rightColumnの重なり順をこの値で切り替える。
+  const [filterExpanded, setFilterExpanded] = useState(false);
   // タップして種別・名称のふきだしを表示中のスポット。もう一度同じピンをタップすると閉じる。
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
   const handleSpotPress = useCallback((spot: MapSpot) => {
@@ -216,8 +220,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
       savedPanY.value = currentPanY.value;
     });
 
-  const hasResting = members.some((m) => m.isResting);
-
   const memberPositions = useMemo(() => {
     const positions: Record<string, ScreenPosition> = {};
     members.forEach((member) => {
@@ -259,9 +261,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>マップ</Text>
-        </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>見守りメンバーが登録されていません。</Text>
         </View>
@@ -272,10 +271,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>マップ</Text>
-      </View>
 
       <View style={styles.mapArea} onLayout={handleMapAreaLayout}>
         <GestureDetector gesture={panGesture}>
@@ -290,7 +285,13 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
                 },
               ]}>
               <MapBackgroundLayer />
-              {heatmapEnabled && <MapWbgtTileLayer region={WBGT_TILE_REGION} readings={wbgtReadings} />}
+              {heatmapEnabled && (
+                <MapWbgtTileLayer
+                  region={WBGT_TILE_REGION}
+                  readings={wbgtReadings}
+                  coolingFeatures={coolingFeatures}
+                />
+              )}
             </View>
 
             {visibleSpots.map((spot) => (
@@ -320,10 +321,6 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
           </View>
         </GestureDetector>
 
-        <View style={styles.legendWrapper} pointerEvents="box-none">
-          <MapLegendCard />
-        </View>
-
         <View style={styles.bottomAttributionRow} pointerEvents="none">
           <View style={styles.googleAttribution}>
             <Text style={styles.googleLogo}>Google</Text>
@@ -331,7 +328,9 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
           {heatmapEnabled && nearestWbgt && <MapWbgtReferenceBadge data={nearestWbgt} />}
         </View>
 
-        <View style={styles.rightColumn} pointerEvents="box-none">
+        <View
+          style={[styles.rightColumn, filterExpanded && styles.rightColumnRaised]}
+          pointerEvents="box-none">
           {members.some((member) => member.isSelf) && (
             <TouchableOpacity
               style={styles.recenterButton}
@@ -356,19 +355,9 @@ export const MapScreen: React.FC<Props> = ({ onOpenMemberDetail, focusMemberId }
             onToggleWater={setWaterEnabled}
             disasterWaterEnabled={disasterWaterEnabled}
             onToggleDisasterWater={setDisasterWaterEnabled}
+            onExpandedChange={setFilterExpanded}
           />
-
-          {hasResting && (
-            <View style={styles.restingPill}>
-              <BedDouble size={14} color={colors.primary} />
-              <Text style={styles.restingPillText}>お休み中のメンバーあり</Text>
-            </View>
-          )}
         </View>
-      </View>
-
-      <View style={styles.bottomLegend}>
-        <MapSpotLegendBar />
       </View>
     </SafeAreaView>
   );
@@ -378,16 +367,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
   },
   emptyState: {
     flex: 1,
@@ -418,11 +397,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
   },
-  legendWrapper: {
-    position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
-  },
   bottomAttributionRow: {
     position: 'absolute',
     bottom: spacing.sm,
@@ -452,22 +426,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     maxWidth: '60%',
   },
-  restingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardBackground,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.restBorder,
-  },
-  restingPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 6,
-    flexShrink: 1,
+  // 表示設定パネルを展開している間だけ、メンバー・スポットのピンより手前に表示する
+  // （ピン自体は画面端にクランプされた際に見えなくならないよう、通常はこのボタン列より
+  // 手前＝後に描画しているため、パネルが開いている間はこちらのzIndexを引き上げて逆転させる）。
+  rightColumnRaised: {
+    zIndex: 10,
+    elevation: 10,
   },
   recenterButton: {
     width: 40,
@@ -481,9 +445,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-  },
-  bottomLegend: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
   },
 });

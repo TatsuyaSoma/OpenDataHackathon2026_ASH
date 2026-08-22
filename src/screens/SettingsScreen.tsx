@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
+import { StyleSheet, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Member } from '../types';
 import { colors, spacing } from '../constants/theme';
@@ -63,10 +63,6 @@ export const SettingsScreen: React.FC<Props> = ({ onAddMember, onEditMember, onR
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>設定</Text>
-      </View>
-
       <SettingsSubTabBar activeTab={activeTab} onChangeTab={setActiveTab} />
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -94,15 +90,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   content: {
     padding: spacing.lg,
