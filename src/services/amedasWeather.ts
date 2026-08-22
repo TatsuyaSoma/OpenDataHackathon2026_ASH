@@ -1,9 +1,14 @@
-// 気象庁アメダスの非公式公開JSON（APIキー不要・CORS許可あり）から、
-// 指定した緯度経度に最も近い観測地点の現在気温・湿度を取得する。
+// 気象庁アメダスの非公式公開JSON（APIキー不要・CORS許可あり）を情報源とするが、
+// 「未文書化のエンドポイントへ継続的にアクセスし続けるのはグレー」という判断から、
+// 2026-08-21 14:50 JST 時点で一度だけ取得したスナップショット（`src/data/amedasStationTable.json`・
+// `src/data/amedasLatestSnapshot.json`）をテストデータとして固定的に使い続ける方針に変更した。
+// 以後、この2ファイルを更新しない限り実況値は変化しない（＝ネットワーク取得は行わない）。
 // 参考: https://www.jma.go.jp/bosai/amedas/ （観測データの二次利用は自己責任・仕様は予告なく変わりうる）
 
-const STATION_TABLE_URL = 'https://www.jma.go.jp/bosai/amedas/const/amedastable.json';
-const LATEST_TIME_URL = 'https://www.jma.go.jp/bosai/amedas/data/latest_time.txt';
+import stationTableSnapshot from '../data/amedasStationTable.json';
+import latestDataSnapshot from '../data/amedasLatestSnapshot.json';
+
+const SNAPSHOT_OBSERVED_AT = '2026-08-21T14:50:00+09:00';
 
 interface AmedasStationEntry {
   lat: [number, number]; // [度, 分]
@@ -57,43 +62,15 @@ const haversineDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: num
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-// 観測地点一覧は頻繁には変わらないため、アプリ起動中はモジュールレベルでキャッシュして使い回す
-let stationTableCache: Promise<AmedasStationTable> | undefined;
-const fetchStationTable = (): Promise<AmedasStationTable> => {
-  if (!stationTableCache) {
-    stationTableCache = fetch(STATION_TABLE_URL).then((res) => {
-      if (!res.ok) throw new Error(`観測地点一覧の取得に失敗しました（${res.status}）`);
-      return res.json();
-    });
-  }
-  return stationTableCache;
-};
-
-// 端末のタイムゾーンに関わらず日本時間（UTC+9）でURL用のタイムスタンプを組み立てる
-const formatTimestampForUrl = (isoString: string) => {
-  const jst = new Date(new Date(isoString).getTime() + 9 * 60 * 60 * 1000);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return (
-    `${jst.getUTCFullYear()}${pad(jst.getUTCMonth() + 1)}${pad(jst.getUTCDate())}` +
-    `${pad(jst.getUTCHours())}${pad(jst.getUTCMinutes())}00`
-  );
-};
-
-// 観測地点一覧・最新観測値をまとめて取得する（fetchNearestWeather / fetchStationsInBounds で共有）
+// 観測地点一覧・最新観測値は、いずれもファイル先頭でimportした固定スナップショットをそのまま返す
+// （fetchNearestWeather / fetchNearestWeatherBatch / fetchStationsInBounds で共有）。
+// 関数名・戻り値の形（Promise）は変更前と揃えてあり、呼び出し側の実装は変更不要。
 const fetchStationTableAndLatestData = async () => {
-  const stationTable = await fetchStationTable();
-
-  const latestTimeRes = await fetch(LATEST_TIME_URL);
-  if (!latestTimeRes.ok) throw new Error(`観測時刻の取得に失敗しました（${latestTimeRes.status}）`);
-  const latestTimeText = (await latestTimeRes.text()).trim();
-
-  const latestDataRes = await fetch(
-    `https://www.jma.go.jp/bosai/amedas/data/map/${formatTimestampForUrl(latestTimeText)}.json`
-  );
-  if (!latestDataRes.ok) throw new Error(`観測データの取得に失敗しました（${latestDataRes.status}）`);
-  const latestData: AmedasLatestData = await latestDataRes.json();
-
-  return { stationTable, latestData, latestTimeText };
+  return {
+    stationTable: stationTableSnapshot as unknown as AmedasStationTable,
+    latestData: latestDataSnapshot as unknown as AmedasLatestData,
+    latestTimeText: SNAPSHOT_OBSERVED_AT,
+  };
 };
 
 /**

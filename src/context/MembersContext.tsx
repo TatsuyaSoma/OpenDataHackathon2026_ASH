@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { MISSIONS, MISSION_ALL_CLEAR_BONUS } from '../constants/missions';
 import { isHighRisk } from '../constants/riskConfig';
 import { mockMembers } from '../data/mockData';
+import { computeMissionStates } from '../logic/missions';
 import { estimateRiskLevel, estimateRiskScore } from '../logic/riskCalculation';
 import { applyVitalityTick } from '../logic/vitalityGauge';
 import { fetchNearestWeatherBatch } from '../services/amedasWeather';
@@ -21,6 +23,7 @@ interface MembersContextValue {
   removeMember: (id: string) => void;
   removeAllMembers: () => void;
   toggleResting: (id: string) => void;
+  completeMission: (memberId: string, missionId: string) => void;
 }
 
 // getHours()/getMinutes()は端末のシステムタイムゾーン依存（エミュレータ等でUTCになっている場合、
@@ -119,7 +122,7 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setMembers([]);
   }, []);
 
-  // お休みモードのON/OFFを切り替える。ONにした瞬間の時刻を記録する。
+  // お休みモードのON/OFFを切り替える。ミッションの達成記録とクールダウンは保持する。
   const toggleResting = useCallback((id: string) => {
     setMembers((prev) =>
       prev.map((member) => {
@@ -131,6 +134,42 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
           isResting: nextResting,
           restStartedAt: nextResting ? formatTimeLabel(now) : undefined,
         };
+      })
+    );
+  }, []);
+
+  // ミッションを1つ達成する。クールダウン中は何もしない（呼び出し元のUIでも
+  // ボタンをdisabledにしているが、念のためここでも同じ判定で二重にガードする）。
+  // 3つ全部を同時にクリア中の状態になった瞬間、1回だけ全クリアボーナスを追加で回復させる。
+  const completeMission = useCallback((memberId: string, missionId: string) => {
+    setMembers((prev) =>
+      prev.map((member) => {
+        if (member.id !== memberId) return member;
+
+        const states = computeMissionStates(member.missionCompletions, member.isResting);
+        const target = states.find((state) => state.id === missionId);
+        if (!target?.available) return member;
+
+        const mission = MISSIONS.find((m) => m.id === missionId);
+        if (!mission) return member;
+
+        const nowIso = new Date().toISOString();
+        const missionCompletions = { ...(member.missionCompletions ?? {}), [missionId]: nowIso };
+
+        let vitality = Math.min(100, member.vitality + mission.points);
+
+        const allCleared = computeMissionStates(missionCompletions, member.isResting).every(
+          (state) => state.onCooldown
+        );
+        let missionAllClearBonusGiven = member.missionAllClearBonusGiven ?? false;
+        if (allCleared && !missionAllClearBonusGiven) {
+          vitality = Math.min(100, vitality + MISSION_ALL_CLEAR_BONUS);
+          missionAllClearBonusGiven = true;
+        } else if (!allCleared) {
+          missionAllClearBonusGiven = false;
+        }
+
+        return { ...member, missionCompletions, vitality, missionAllClearBonusGiven };
       })
     );
   }, []);
@@ -281,8 +320,18 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
       removeMember,
       removeAllMembers,
       toggleResting,
+      completeMission,
     }),
-    [derivedMembers, getMemberById, addMember, updateMember, removeMember, removeAllMembers, toggleResting]
+    [
+      derivedMembers,
+      getMemberById,
+      addMember,
+      updateMember,
+      removeMember,
+      removeAllMembers,
+      toggleResting,
+      completeMission,
+    ]
   );
 
   return <MembersContext.Provider value={value}>{children}</MembersContext.Provider>;

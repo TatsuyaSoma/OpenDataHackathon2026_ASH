@@ -38,7 +38,7 @@ export const RiskGauge: React.FC<Props> = ({
   // ただし完全に0%だとリングが全く見えず「未取得」と誤認されやすいため、視認性のため最小4%を保証する。
   const rawProgress =
     score !== undefined ? score / 100 : (config.order - 1) / (RISK_LEVEL_COUNT - 1); // 0〜1
-  const progress = Math.max(rawProgress, 0.04);
+  const progress = score !== undefined ? Math.max(rawProgress, 0) : Math.max(rawProgress, 0.04);
   const displayValue = valueLabel ?? score;
   const displayColor = valueColor ?? config.color;
 

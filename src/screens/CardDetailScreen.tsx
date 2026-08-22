@@ -1,24 +1,26 @@
+import { ArrowLeft, History, MoreVertical } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, History, MoreVertical } from 'lucide-react-native';
-import { Member } from '../types';
-import { colors, spacing, radius } from '../constants/theme';
-import { showAlert } from '../utils/crossPlatformAlert';
+import { BasicInfoCard } from '../components/BasicInfoCard';
 import { DetailMemberHeader } from '../components/DetailMemberHeader';
+import { EnvironmentStatsGrid } from '../components/EnvironmentStatsGrid';
+import { MapPreviewCard } from '../components/MapPreviewCard';
+import { MissionCard } from '../components/MissionCard';
+import { QuickReplyBar } from '../components/QuickReplyBar';
 import { RestStatusBanner } from '../components/RestStatusBanner';
 import { RiskLevelPanel } from '../components/RiskLevelPanel';
-import { EnvironmentStatsGrid } from '../components/EnvironmentStatsGrid';
-import { BasicInfoCard } from '../components/BasicInfoCard';
-import { MapPreviewCard } from '../components/MapPreviewCard';
-import { QuickReplyBar } from '../components/QuickReplyBar';
+import { colors, radius, spacing } from '../constants/theme';
+import { useMembers } from '../context/MembersContext';
+import { Member } from '../types';
+import { showAlert } from '../utils/crossPlatformAlert';
 
 interface Props {
   member: Member;
@@ -35,11 +37,14 @@ export const CardDetailScreen: React.FC<Props> = ({
   onOpenMap,
   onOpenMenu,
 }) => {
+  const { completeMission, toggleResting } = useMembers();
+
   // お休み解除をこの画面上で即座に反映できるよう、ローカルstateとして保持
   // （実際にはサーバー/位置情報サービスへの反映後、上位のstateも更新する想定）
   const [isResting, setIsResting] = useState(member.isResting);
 
   const handleReleaseRest = () => {
+    toggleResting(member.id);
     setIsResting(false);
   };
 
@@ -49,6 +54,14 @@ export const CardDetailScreen: React.FC<Props> = ({
 
   const handleImFine = () => {
     showAlert('送信しました', `${member.name}に「元気！」を送りました。`);
+  };
+
+  const handleCompleteMission = (missionId: string) => {
+    completeMission(member.id, missionId);
+    if (missionId === 'cool-place' && !isResting) {
+      toggleResting(member.id);
+      setIsResting(true);
+    }
   };
 
   return (
@@ -75,7 +88,11 @@ export const CardDetailScreen: React.FC<Props> = ({
 
         <DetailMemberHeader member={member} />
 
-        <RiskLevelPanel riskLevel={member.riskLevel} riskHistory={member.riskHistory} />
+        <RiskLevelPanel
+          riskLevel={member.riskLevel}
+          riskHistory={member.riskHistory}
+          lastUpdated={member.lastUpdated}
+        />
 
         <EnvironmentStatsGrid environment={member.environment} observedAt={member.lastUpdated} />
 
@@ -85,6 +102,11 @@ export const CardDetailScreen: React.FC<Props> = ({
             onPressRelease={handleReleaseRest}
           />
         )}
+
+        <MissionCard
+          member={isResting === member.isResting ? member : { ...member, isResting }}
+          onCompleteMission={handleCompleteMission}
+        />
 
         <BasicInfoCard
           birthDate={member.birthDate}

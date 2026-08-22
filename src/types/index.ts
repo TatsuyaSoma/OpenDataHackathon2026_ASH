@@ -76,4 +76,6 @@ export interface Member {
   isResting: boolean;  // お休みモード中かどうか
   restStartedAt?: string; // お休みモードを開始した時刻（表示用 "9:15" 形式）
   vitality: number; // 体力ゲージ（0〜100）。危険な状態が続くと減り、休憩や安全な状態で回復する（ホーム・マップの円形ゲージに表示）
+  missionCompletions?: Record<string, string>; // ミッションID→達成時刻(ISO文字列)。カード詳細画面のミッションのクールダウン判定に使う
+  missionAllClearBonusGiven?: boolean; // 直近の「全ミッション同時クリア」に対して全クリアボーナスを既に付与済みかどうか
 }

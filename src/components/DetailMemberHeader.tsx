@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
 import { MapPin, User } from 'lucide-react-native';
-import { Member } from '../types';
+import React, { useState } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { colors, radius, spacing } from '../constants/theme';
 import { estimateVitalityLevel } from '../logic/vitalityGauge';
-import { RISK_CONFIG } from '../constants/riskConfig';
-import { colors, spacing, radius } from '../constants/theme';
+import { Member } from '../types';
 import { RiskBadge } from './RiskBadge';
 import { RiskGauge } from './RiskGauge';
 
@@ -54,10 +53,8 @@ export const DetailMemberHeader: React.FC<Props> = ({ member }) => {
         <RiskGauge
           riskLevel={estimateVitalityLevel(member.vitality)}
           score={member.vitality}
-          valueLabel={member.riskScore}
-          valueColor={RISK_CONFIG[member.riskLevel].color}
-          size={64}
-          strokeWidth={7}
+          valueLabel={Math.round(member.vitality)}
+          valueSuffix="%"
         />
       </View>
     </View>
