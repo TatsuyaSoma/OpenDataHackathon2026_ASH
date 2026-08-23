@@ -47,6 +47,9 @@ export const CardDetailScreen: React.FC<Props> = ({ member, historicalNotice, on
     showAlert('送信しました', `${member.name}に「元気！」を送りました。`);
   };
 
+  // お休み解除直後、上位のstate反映を待たずに済むよう、表示用のmemberにローカルstateを重ねる
+  const displayMember = isResting === member.isResting ? member : { ...member, isResting };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -59,7 +62,7 @@ export const CardDetailScreen: React.FC<Props> = ({ member, historicalNotice, on
           </View>
         )}
 
-        <DetailMemberHeader member={member} />
+        <DetailMemberHeader member={displayMember} />
 
         <RiskLevelPanel
           riskLevel={member.riskLevel}
@@ -76,9 +79,7 @@ export const CardDetailScreen: React.FC<Props> = ({ member, historicalNotice, on
           />
         )}
 
-        {!member.isSelf && (
-          <MissionCard member={isResting === member.isResting ? member : { ...member, isResting }} />
-        )}
+        {!member.isSelf && <MissionCard member={displayMember} />}
 
         <BasicInfoCard
           birthDate={member.birthDate}

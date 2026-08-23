@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import type { TabTriggerSlotProps } from 'expo-router/ui';
 import { TabList, Tabs, TabSlot, TabTrigger } from 'expo-router/ui';
 import type { LucideIcon } from 'lucide-react-native';
@@ -42,6 +43,7 @@ function TabButton({ icon: Icon, children, isFocused, ...props }: TabButtonProps
  */
 export default function AppTabs() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { members } = useMembers();
   const [missionOpen, setMissionOpen] = useState(false);
   const selfMember = members.find((member) => member.isSelf);
@@ -55,13 +57,19 @@ export default function AppTabs() {
     let subscription: { remove: () => void } | undefined;
     try {
       const notifications = require('expo-notifications') as typeof import('expo-notifications');
-      const openMissionFromResponse = (response: import('expo-notifications').NotificationResponse | null) => {
+      const openScreenFromResponse = (response: import('expo-notifications').NotificationResponse | null) => {
         if (!response) return;
-        const data = response.notification.request.content.data as { destination?: string } | undefined;
-        if (data?.destination === 'missions') setMissionOpen(true);
+        const data = response.notification.request.content.data as
+          | { destination?: string; memberId?: string }
+          | undefined;
+        if (data?.destination === 'missions') {
+          setMissionOpen(true);
+        } else if (data?.destination === 'memberDetail' && data.memberId) {
+          router.push({ pathname: '/member/[id]', params: { id: data.memberId } });
+        }
       };
-      subscription = notifications.addNotificationResponseReceivedListener(openMissionFromResponse);
-      notifications.getLastNotificationResponseAsync().then(openMissionFromResponse).catch(() => undefined);
+      subscription = notifications.addNotificationResponseReceivedListener(openScreenFromResponse);
+      notifications.getLastNotificationResponseAsync().then(openScreenFromResponse).catch(() => undefined);
     } catch (error) {
       // WebやExpo Goで通知モジュールが利用できない場合は、アプリの表示を継続する
     }
@@ -102,11 +110,7 @@ export default function AppTabs() {
         </View>
       </TabList>
 
-      {missionOpen && (
-        <View style={StyleSheet.absoluteFill}>
-          <MissionListScreen onClose={() => setMissionOpen(false)} />
-        </View>
-      )}
+      <MissionListScreen visible={missionOpen} onClose={() => setMissionOpen(false)} />
     </Tabs>
   );
 }

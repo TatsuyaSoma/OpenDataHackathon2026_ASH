@@ -281,7 +281,12 @@ export const MembersProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       requestNotificationPermission().then((granted) => {
         if (granted) {
-          sendVitalityReminderNotification(message, member.isSelf ? { destination: 'missions' } : undefined);
+          sendVitalityReminderNotification(
+            message,
+            member.isSelf
+              ? { destination: 'missions' }
+              : { destination: 'memberDetail', memberId: member.id }
+          );
         }
       });
 

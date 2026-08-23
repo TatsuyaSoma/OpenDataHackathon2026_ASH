@@ -65,7 +65,7 @@ export const MissionCard: React.FC<Props> = ({ member, onCompleteMission, defaul
         <View key={state.id} style={[styles.row, index === 0 && styles.rowFirst]}>
           <View style={styles.rowInfo}>
             <Text style={styles.missionLabel}>{state.label}</Text>
-            <Text style={styles.missionPoints}>+{state.points}</Text>
+            <Text style={styles.missionPoints}>+{state.points}%</Text>
           </View>
           {member.isSelf ? (
             <TouchableOpacity
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.successText,
     marginLeft: spacing.sm,
-    width: 36,
+    width: 44,
     textAlign: 'right',
   },
   button: {
